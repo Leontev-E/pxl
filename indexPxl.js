@@ -8,7 +8,7 @@
         sessionStorage.setItem('pxl', pxl);
     }
 
-    if (subid) {
+    if (subid && subid !== '{subid}') {
         sessionStorage.setItem('external_id', subid);
         sessionStorage.setItem('event_id', subid);
     }
