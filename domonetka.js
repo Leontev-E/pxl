@@ -8,7 +8,6 @@
     const urlParams = new URLSearchParams(window.location.search);
     const pxl = urlParams.get('pxl') || 'default_pxl';
     const contentIds = urlParams.get('content_ids');
-    const domonetka = '{domonetka}';
     const subid = getCookie('_subid');
 
     if (pxl) {
