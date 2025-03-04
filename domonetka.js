@@ -72,3 +72,34 @@
         })();
     }
 })();
+
+(function() {
+  function setUTMCookies() {
+    const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer'];
+    const params = new URLSearchParams(window.location.search);
+    utmParameters.forEach(param => {
+      if (params.has(param)) {
+        const value = params.get(param);
+        document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
+      }
+    });
+  }
+
+  setUTMCookies();
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('gt')) {
+    const gt = params.get('gt');
+    const gtmScript = document.createElement('script');
+    gtmScript.async = true;
+    gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
+    document.head.appendChild(gtmScript);
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      window.dataLayer.push(arguments);
+    }
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', gt);
+  }
+})();
