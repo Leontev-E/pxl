@@ -17,6 +17,9 @@
     if (subid) {
         sessionStorage.setItem('external_id', subid);
         sessionStorage.setItem('event_id', subid);
+    }
+
+    if (domonetka) {
         sessionStorage.setItem('dom', domonetka);
     }
 
