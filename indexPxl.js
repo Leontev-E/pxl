@@ -82,8 +82,8 @@
     const params = new URLSearchParams(window.location.search);
     utmParameters.forEach(param => {
       if (params.has(param)) {
-        const value = params.get(param);
-        document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
+        const values = params.get(param);
+        document.cookie = `${param}=${encodeURIComponent(values)}; path=/; max-age=3600`;
       }
     });
   }
