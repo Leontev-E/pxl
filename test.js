@@ -28,18 +28,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Google Tag
 (() => {
-  // Функция для получения значения cookie
   const getCookie = name => {
     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
     return match ? match[2] : "";
   };
 
-  // Получаем необходимые cookie
   const gt = getCookie("gt");
   const pt = getCookie("pt");
   const ad_id = getCookie("ad_id");
   const acc = getCookie("acc");
   const buyer = getCookie("buyer");
+
+  if (!gt || gt === "gt") return;
 
   // Функция для обновления URL с добавлением UTM-параметров
   const updateURL = () => {
@@ -68,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  if (gt || pt) {
-    updateURL();
-  }
+  // Выполнение функции обновления URL и загрузки GTM, если gt валидный
+  updateURL();
 })();
