@@ -7,7 +7,7 @@
 
     // Получаем URL-параметры один раз
     const urlParams = new URLSearchParams(window.location.search);
-    const pxl = urlParams.get('pxl') || 'default_pxl';
+    const pxl = urlParams.get('pxl') || '';
     const contentIds = urlParams.get('content_ids');
     const subid = getCookie('_subid');
 
