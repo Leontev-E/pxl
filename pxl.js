@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const pxl = sessionStorage.getItem('pxl');
-  console.log(pxl);
   if (!pxl) return;
 
   const subid = sessionStorage.getItem('external_id');
