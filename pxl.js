@@ -9,13 +9,14 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const { timestamp } = JSON.parse(storedEvent);
       if (timestamp && now - timestamp < twoHours) {
-        return; // Событие уже отправлено менее 2 часов назад
+        return;
       }
     } catch (error) {
     }
   }
 
   const pxl = sessionStorage.getItem('pxl');
+  console.log(pxl);
   if (!pxl) return;
 
   const subid = sessionStorage.getItem('external_id');
