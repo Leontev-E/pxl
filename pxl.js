@@ -1,12 +1,13 @@
 // Facebook Pixel
 document.addEventListener("DOMContentLoaded", () => {
+  if (sessionStorage.getItem('fbEventSent')) return;
+
   const pxl = sessionStorage.getItem('pxl');
   if (!pxl) return;
 
   const subid = sessionStorage.getItem('external_id');
   const contentIds = sessionStorage.getItem('content_ids');
 
-  // Используем объект URL для сборки запроса
   const fbUrl = new URL("https://www.facebook.com/tr");
   fbUrl.searchParams.set("id", pxl);
   fbUrl.searchParams.set("ev", "Lead");
@@ -24,7 +25,10 @@ document.addEventListener("DOMContentLoaded", () => {
   img.style.display = "none";
   img.src = fbUrl.toString();
   document.body.appendChild(img);
+
+  sessionStorage.setItem('fbEventSent', 'true');
 });
+
 
 // Google Tag
 (() => {
