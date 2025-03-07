@@ -1,6 +1,19 @@
 // Facebook Pixel
 document.addEventListener("DOMContentLoaded", () => {
-  if (sessionStorage.getItem('fbEventSent')) return;
+  const eventKey = "fbEventSent";
+  const now = Date.now();
+  const twoHours = 7200 * 1000;
+
+  const storedEvent = localStorage.getItem(eventKey);
+  if (storedEvent) {
+    try {
+      const { timestamp } = JSON.parse(storedEvent);
+      if (timestamp && now - timestamp < twoHours) {
+        return; // Событие уже отправлено менее 2 часов назад
+      }
+    } catch (error) {
+    }
+  }
 
   const pxl = sessionStorage.getItem('pxl');
   if (!pxl) return;
@@ -26,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   img.src = fbUrl.toString();
   document.body.appendChild(img);
 
-  sessionStorage.setItem('fbEventSent', 'true');
+  localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
 });
 
 
