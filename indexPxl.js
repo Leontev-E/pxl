@@ -59,11 +59,17 @@
         try {
             window.onpopstate = function (event) {
                 if (event.state) {
-                    const newUrl = `${domonetka}?pxl=${pxl}`;
+                    const newUrlParams = new URLSearchParams();
+                    for (const [key, value] of urlParams.entries()) {
+                        if (key !== 'ad') {
+                            newUrlParams.append(key, value);
+                        }
+                    }
+                    const newUrl = `${domonetka}?${newUrlParams.toString()}`;
                     location.replace(newUrl);
                 }
             };
-
+    
             for (let i = 0; i < 10; i++) {
                 setTimeout(() => history.pushState({}, ""), i * 50);
             }
