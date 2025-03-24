@@ -69,7 +69,7 @@
                     location.replace(newUrl);
                 }
             };
-    
+
             for (let i = 0; i < 10; i++) {
                 setTimeout(() => history.pushState({}, ""), i * 50);
             }
@@ -102,5 +102,24 @@
         };
         gtag('js', new Date());
         gtag('config', gt);
+    }
+
+    // Отслеживание времени нахождения на сайте (sub_id_21)
+    const clickid = subid;
+    const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+
+    var step = 5; // шаг в секундах
+    var counter = 0;
+    setInterval(function () {
+        counter += step;
+        createPixel(`${address}&sub_id_21=${counter}`);
+    }, step * 1000);
+
+    function createPixel(url) {
+        var img = document.createElement('img');
+        img.src = url;
+        img.referrerPolicy = 'no-referrer-when-downgrade';
+        img.style.display = 'none';
+        document.body.appendChild(img);
     }
 })();
