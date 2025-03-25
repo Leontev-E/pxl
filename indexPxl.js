@@ -77,7 +77,7 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
                 newUrlParams.set('sub_id_4', currentUrlParams.get('buyer'));
             }
             if (currentUrlParams.has('pxl')) {
-                newUrlParams.set('sub_id_8', currentUrlParams.get('pxl'));
+                newUrlParams.set('pxl', currentUrlParams.get('pxl'));
             }
             if (currentUrlParams.has('adset')) {
                 newUrlParams.set('sub_id_5', currentUrlParams.get('adset'));
