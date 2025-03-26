@@ -122,16 +122,18 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
     }
 
     // Отслеживание времени нахождения на сайте (sub_id_21)
-    const clickid = subid;
-    const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
-
-    var step = 5;
-    var counter = 0;
-    setInterval(function () {
-        counter += step;
-        createPixel(`${address}&sub_id_21=${counter}`);
-    }, step * 1000);
-
+    if (subid && subid !== '{subid}') {
+        const clickid = subid;
+        const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+    
+        var step = 5;
+        var counter = 0;
+        setInterval(function () {
+            counter += step;
+            createPixel(`${address}&sub_id_21=${counter}`);
+        }, step * 1000);
+    }
+    
     function createPixel(url) {
         var img = document.createElement('img');
         img.src = url;
