@@ -144,60 +144,49 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 
-/* Комбекер: перенаправление пользователя, если он решил уйти и вернулся */
+/* Комбекер: перенаправление пользователя, если он решил уйти */
 if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
     let hasTriedToLeave = false;
 
-    window.onbeforeunload = function(e) {
-        if (!hasTriedToLeave) {
-            hasTriedToLeave = true;
-            e.returnValue = "Вы действительно хотите покинуть сайт?";
-            return "Вы действительно хотите покинуть сайт?";
-        }
-    };
-
     function redirectToDomonetka() {
+        window.onbeforeunload = null;
         const currentUrlParams = new URLSearchParams(window.location.search);
         const newUrlParams = new URLSearchParams();
 
-        if (currentUrlParams.has('source')) {
-            newUrlParams.set('source', currentUrlParams.get('source'));
-        }
-        if (currentUrlParams.has('ev')) {
-            newUrlParams.set('ev', currentUrlParams.get('ev'));
-        }
-        if (currentUrlParams.has('acc')) {
-            newUrlParams.set('sub_id_2', currentUrlParams.get('acc'));
-        }
-        if (currentUrlParams.has('placement')) {
-            newUrlParams.set('sub_id_3', currentUrlParams.get('placement'));
-        }
-        if (currentUrlParams.has('buyer')) {
-            newUrlParams.set('sub_id_4', currentUrlParams.get('buyer'));
-        }
-        if (currentUrlParams.has('pxl')) {
-            newUrlParams.set('pxl', currentUrlParams.get('pxl'));
-        }
-        if (currentUrlParams.has('adset')) {
-            newUrlParams.set('sub_id_5', currentUrlParams.get('adset'));
-        }
+        if (currentUrlParams.has('source')) newUrlParams.set('source', currentUrlParams.get('source'));
+        if (currentUrlParams.has('ev')) newUrlParams.set('ev', currentUrlParams.get('ev'));
+        if (currentUrlParams.has('acc')) newUrlParams.set('sub_id_2', currentUrlParams.get('acc'));
+        if (currentUrlParams.has('placement')) newUrlParams.set('sub_id_3', currentUrlParams.get('placement'));
+        if (currentUrlParams.has('buyer')) newUrlParams.set('sub_id_4', currentUrlParams.get('buyer'));
+        if (currentUrlParams.has('pxl')) newUrlParams.set('pxl', currentUrlParams.get('pxl'));
+        if (currentUrlParams.has('adset')) newUrlParams.set('sub_id_5', currentUrlParams.get('adset'));
         
         newUrlParams.set('sub_id_22', 'combecker');
 
         const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-        location.replace(newUrl);
+        window.location.href = newUrl;
     }
 
-    window.addEventListener("focus", function() {
-        if (hasTriedToLeave) {
-            setTimeout(redirectToDomonetka, 100);
-        }
-    });
+    window.onbeforeunload = function(e) {
+        hasTriedToLeave = true;
+        const confirmationMessage = "Вы действительно хотите покинуть сайт?";
+        e.returnValue = confirmationMessage;
+        setTimeout(function() {
+            if (hasTriedToLeave && !document.hidden) {
+                hasTriedToLeave = false;
+                redirectToDomonetka();
+            }
+        }, 200);
+        return confirmationMessage;
+    };
 
-    document.addEventListener("click", function(e) {
-        if (e.target.tagName === "A") {
-            hasTriedToLeave = true;
+    function handleVisibilityChange() {
+        if (!document.hidden && hasTriedToLeave) {
+            hasTriedToLeave = false;
+            redirectToDomonetka();
         }
-    });
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 }
 })();
