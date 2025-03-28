@@ -68,6 +68,10 @@
         history.replaceState({page: 'current'}, document.title, window.location.href);
 
         window.onpopstate = function (event) {
+            if (window.location.hash) {
+                return;
+            }
+            
             if (isAnchorNavigation) {
                 isAnchorNavigation = false;
                 return;
