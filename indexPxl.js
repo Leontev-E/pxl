@@ -54,10 +54,24 @@
         }
     }
 
-    // Обработка переходов для domonetka
-if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
-    try {
+    // Обработка переходов для domonetka только при возврате назад
+    if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
+        // Флаг для определения, что произошёл клик по якорной ссылке
+        let isAnchorNavigation = false;
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function() {
+                isAnchorNavigation = true;
+            });
+        });
+
+        history.replaceState({page: 'current'}, document.title, window.location.href);
+
         window.onpopstate = function (event) {
+            if (isAnchorNavigation) {
+                isAnchorNavigation = false;
+                return;
+            }
             const currentUrlParams = new URLSearchParams(window.location.search);
             const newUrlParams = new URLSearchParams();
 
@@ -88,14 +102,7 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
             const newUrl = `${domonetka}?${newUrlParams.toString()}`;
             location.replace(newUrl);
         };
-
-        for (let i = 0; i < 10; i++) {
-            setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
-        }
-    } catch (error) {
-        console.error(error);
     }
-}
 
     // Установка UTMCookies и интеграция Google Tag Manager
     function setUTMCookies() {
