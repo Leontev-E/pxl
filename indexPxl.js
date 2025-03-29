@@ -85,7 +85,7 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
 
             newUrlParams.set('sub_id_22', 'domonetka');
 
-            const newUrl = ${domonetka}?${newUrlParams.toString()};
+            const newUrl = `${domonetka}?${newUrlParams.toString()}`;
             location.replace(newUrl);
         };
 
