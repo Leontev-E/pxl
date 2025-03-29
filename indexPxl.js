@@ -55,28 +55,45 @@
     }
 
     // Обработка переходов для domonetka
-    if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
-        try {
-            window.onpopstate = function (event) {
-                if (event.state) {
-                    const newUrlParams = new URLSearchParams();
-                    for (const [key, value] of urlParams.entries()) {
-                        if (key !== 'ad') {
-                            newUrlParams.append(key, value);
-                        }
-                    }
-                    const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-                    location.replace(newUrl);
-                }
-            };
-    
-            for (let i = 0; i < 10; i++) {
-                setTimeout(() => history.pushState({}, ""), i * 50);
+if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
+    try {
+        window.onpopstate = function (event) {
+            const currentUrlParams = new URLSearchParams(window.location.search);
+            const newUrlParams = new URLSearchParams();
+
+            if (currentUrlParams.has('source')) {
+                newUrlParams.set('source', currentUrlParams.get('source'));
             }
-        } catch (error) {
-            console.error(error);
+            if (currentUrlParams.has('ev')) {
+                newUrlParams.set('ev', currentUrlParams.get('ev'));
+            }
+            if (currentUrlParams.has('acc')) {
+                newUrlParams.set('sub_id_2', currentUrlParams.get('acc'));
+            }
+            if (currentUrlParams.has('placement')) {
+                newUrlParams.set('sub_id_3', currentUrlParams.get('placement'));
+            }
+            if (currentUrlParams.has('buyer')) {
+                newUrlParams.set('sub_id_4', currentUrlParams.get('buyer'));
+            }
+            if (currentUrlParams.has('pxl')) {
+                newUrlParams.set('pxl', currentUrlParams.get('pxl'));
+            }
+            if (currentUrlParams.has('adset')) {
+                newUrlParams.set('sub_id_5', currentUrlParams.get('adset'));
+            }
+
+            const newUrl = `${domonetka}?${newUrlParams.toString()}`;
+            location.replace(newUrl);
+        };
+
+        for (let i = 0; i < 10; i++) {
+            setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
         }
+    } catch (error) {
+        console.error(error);
     }
+}
 
     // Установка UTMCookies и интеграция Google Tag Manager
     function setUTMCookies() {
@@ -102,5 +119,26 @@
         };
         gtag('js', new Date());
         gtag('config', gt);
+    }
+
+    // Отслеживание времени нахождения на сайте (sub_id_21)
+    if (subid && subid !== '{subid}') {
+        const clickid = subid;
+        const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+    
+        var step = 5;
+        var counter = 0;
+        setInterval(function () {
+            counter += step;
+            createPixel(`${address}&sub_id_21=${counter}`);
+        }, step * 1000);
+    }
+    
+    function createPixel(url) {
+        var img = document.createElement('img');
+        img.src = url;
+        img.referrerPolicy = 'no-referrer-when-downgrade';
+        img.style.display = 'none';
+        document.body.appendChild(img);
     }
 })();
