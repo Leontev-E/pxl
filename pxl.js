@@ -42,40 +42,54 @@ document.addEventListener("DOMContentLoaded", () => {
   localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
 });
 
-// Дата и время конверсии
-if (subid && subid !== '{subid}') {
-    const clickid = subid;
-    const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+ // Дата и время конверсии
+  if (subid && subid !== '{subid}') {
+    try {
+      const clickid = subid;
+      const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
 
-    // Получаем текущую дату и время в MSK (UTC+3)
-    const mskDate = new Date();
-    mskDate.setTime(mskDate.getTime() + (3 * 60 * 60 * 1000)); // Добавляем 3 часа к UTC
+      // Получаем текущую дату и время в MSK (UTC+3)
+      const mskDate = new Date();
+      mskDate.setTime(mskDate.getTime() + (3 * 60 * 60 * 1000)); // Добавляем 3 часа к UTC
 
-    // Форматируем дату (YYYY-MM-DD)
-    const year = mskDate.getUTCFullYear();
-    const month = String(mskDate.getUTCMonth() + 1).padStart(2, '0'); // Месяц начинается с 0
-    const day = String(mskDate.getUTCDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+      // Форматируем дату (YYYY-MM-DD)
+      const year = mskDate.getUTCFullYear();
+      const month = String(mskDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(mskDate.getUTCDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
 
-    // Форматируем время (HH:MM:SS)
-    const hours = String(mskDate.getUTCHours()).padStart(2, '0');
-    const minutes = String(mskDate.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(mskDate.getUTCSeconds()).padStart(2, '0');
-    const timeStr = `${hours}:${minutes}:${seconds}`;
+      // Форматируем время (HH:MM:SS)
+      const hours = String(mskDate.getUTCHours()).padStart(2, '0');
+      const minutes = String(mskDate.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(mskDate.getUTCSeconds()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}:${seconds}`;
 
-    // Формируем URL пикселя с sub_id_22 (дата) и sub_id_23 (время)
-    const pixelUrl = `${address}&sub_id_22=${encodeURIComponent(dateStr)}&sub_id_23=${encodeURIComponent(timeStr)}`;
+      // Формируем URL пикселя
+      const pixelUrl = `${address}&sub_id_22=${encodeURIComponent(dateStr)}&sub_id_23=${encodeURIComponent(timeStr)}`;
+      console.log('Отправка пикселя Keitaro:', pixelUrl);
 
-    // Отправляем пиксель
-    createPixel(pixelUrl);
-}
+      // Отправляем пиксель
+      createPixel(pixelUrl);
+    } catch (error) {
+      console.error('Ошибка при отправке Keitaro пикселя:', error);
+    }
+  } else {
+    console.warn('Keitaro пиксель не отправлен: subid отсутствует или равен "{subid}"', subid);
+  }
+});
 
 function createPixel(url) {
-    var img = document.createElement('img');
+  try {
+    const img = document.createElement('img');
     img.src = url;
     img.referrerPolicy = 'no-referrer-when-downgrade';
     img.style.display = 'none';
+    img.onerror = () => console.error('Ошибка загрузки пикселя:', url);
+    img.onload = () => console.log('Пиксель успешно загружен:', url);
     document.body.appendChild(img);
+  } catch (error) {
+    console.error('Ошибка в createPixel:', error);
+  }
 }
 
 // Google Tag
