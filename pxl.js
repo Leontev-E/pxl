@@ -40,9 +40,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.appendChild(img);
 
   localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
-});
 
- // Дата и время конверсии
+  // Дата и время конверсии
   if (subid && subid !== '{subid}') {
     try {
       const clickid = subid;
@@ -77,20 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
     console.warn('Keitaro пиксель не отправлен: subid отсутствует или равен "{subid}"', subid);
   }
 });
-
-function createPixel(url) {
-  try {
-    const img = document.createElement('img');
-    img.src = url;
-    img.referrerPolicy = 'no-referrer-when-downgrade';
-    img.style.display = 'none';
-    img.onerror = () => console.error('Ошибка загрузки пикселя:', url);
-    img.onload = () => console.log('Пиксель успешно загружен:', url);
-    document.body.appendChild(img);
-  } catch (error) {
-    console.error('Ошибка в createPixel:', error);
-  }
-}
 
 // Google Tag
 (() => {
