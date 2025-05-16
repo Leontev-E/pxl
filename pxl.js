@@ -42,6 +42,41 @@ document.addEventListener("DOMContentLoaded", () => {
   localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
 });
 
+// Дата и время конверсии
+if (subid && subid !== '{subid}') {
+    const clickid = subid;
+    const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
+
+    // Получаем текущую дату и время в MSK (UTC+3)
+    const mskDate = new Date();
+    mskDate.setTime(mskDate.getTime() + (3 * 60 * 60 * 1000)); // Добавляем 3 часа к UTC
+
+    // Форматируем дату (YYYY-MM-DD)
+    const year = mskDate.getUTCFullYear();
+    const month = String(mskDate.getUTCMonth() + 1).padStart(2, '0'); // Месяц начинается с 0
+    const day = String(mskDate.getUTCDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    // Форматируем время (HH:MM:SS)
+    const hours = String(mskDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(mskDate.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(mskDate.getUTCSeconds()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}:${seconds}`;
+
+    // Формируем URL пикселя с sub_id_22 (дата) и sub_id_23 (время)
+    const pixelUrl = `${address}&sub_id_22=${encodeURIComponent(dateStr)}&sub_id_23=${encodeURIComponent(timeStr)}`;
+
+    // Отправляем пиксель
+    createPixel(pixelUrl);
+}
+
+function createPixel(url) {
+    var img = document.createElement('img');
+    img.src = url;
+    img.referrerPolicy = 'no-referrer-when-downgrade';
+    img.style.display = 'none';
+    document.body.appendChild(img);
+}
 
 // Google Tag
 (() => {
