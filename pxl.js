@@ -87,3 +87,60 @@ document.addEventListener("DOMContentLoaded", () => {
   // Выполнение функции обновления URL и загрузки GTM, если gt валидный
   updateURL();
 })();
+
+  // Функция для получения значения куки по имени
+  const getCookie = name => {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : "";
+  };
+
+  // Получаем subid из куки _subid
+  const subid = getCookie('_subid');
+
+  if (subid && subid !== '{subid}') {
+    try {
+      const conv_clickid = subid; // Уникальное имя
+      const conv_address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${conv_clickid}`; // Уникальное имя
+
+      // Получаем текущую дату и время в MSK (UTC+3)
+      const conv_mskDate = new Date(); // Уникальное имя
+      conv_mskDate.setTime(conv_mskDate.getTime() + (3 * 60 * 60 * 1000)); // Добавляем 3 часа к UTC
+
+      // Форматируем дату (YYYY-MM-DD)
+      const conv_year = conv_mskDate.getUTCFullYear(); // Уникальное имя
+      const conv_month = String(conv_mskDate.getUTCMonth() + 1).padStart(2, '0'); // Уникальное имя
+      const conv_day = String(conv_mskDate.getUTCDate()).padStart(2, '0'); // Уникальное имя
+      const conv_dateStr = `${conv_year}-${conv_month}-${conv_day}`; // Уникальное имя
+
+      // Форматируем время (HH:MM:SS)
+      const conv_hours = String(conv_mskDate.getUTCHours()).padStart(2, '0'); // Уникальное имя
+      const conv_minutes = String(conv_mskDate.getUTCMinutes()).padStart(2, '0'); // Уникальное имя
+      const conv_seconds = String(conv_mskDate.getUTCSeconds()).padStart(2, '0'); // Уникальное имя
+      const conv_timeStr = `${conv_hours}:${conv_minutes}:${conv_seconds}`; // Уникальное имя
+
+      // Формируем URL пикселя с sub_id_22 (дата) и sub_id_23 (время)
+      const conv_pixelUrl = `${conv_address}&sub_id_22=${encodeURIComponent(conv_dateStr)}&sub_id_23=${encodeURIComponent(conv_timeStr)}`; // Уникальное имя
+      console.log('Отправка Keitaro пикселя:', conv_pixelUrl); // Логирование для отладки
+
+      // Отправляем пиксель
+      createPixel(conv_pixelUrl);
+    } catch (error) {
+      console.error('Ошибка при отправке Keitaro пикселя:', error);
+    }
+  } else {
+    console.warn('Keitaro пиксель не отправлен: subid отсутствует или равен "{subid}"', subid);
+  }
+
+  function createPixel(url) {
+    try {
+      var img = document.createElement('img');
+      img.src = url;
+      img.referrerPolicy = 'no-referrer-when-downgrade';
+      img.style.display = 'none';
+      img.onload = () => console.log('Keitaro пиксель успешно загружен:', url); // Логирование успеха
+      img.onerror = () => console.error('Ошибка загрузки Keitaro пикселя:', url); // Логирование ошибки
+      document.body.appendChild(img);
+    } catch (error) {
+      console.error('Ошибка в createPixel:', error);
+    }
+  }
