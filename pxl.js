@@ -94,33 +94,28 @@ document.addEventListener("DOMContentLoaded", () => {
     return match ? match[2] : "";
   };
 
-  // Получаем subid из куки _subid
   const subid = getCookie('_subid');
 
   if (subid && subid !== '{subid}') {
     try {
-      const conv_clickid = subid; // Уникальное имя
-      const conv_address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${conv_clickid}`; // Уникальное имя
+      const conv_clickid = subid;
+      const conv_address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${conv_clickid}`;
 
-      // Получаем текущую дату и время в MSK (UTC+3)
-      const conv_mskDate = new Date(); // Уникальное имя
-      conv_mskDate.setTime(conv_mskDate.getTime() + (3 * 60 * 60 * 1000)); // Добавляем 3 часа к UTC
+      const conv_mskDate = new Date();
+      conv_mskDate.setTime(conv_mskDate.getTime() + (3 * 60 * 60 * 1000));
 
-      // Форматируем дату (YYYY-MM-DD)
-      const conv_year = conv_mskDate.getUTCFullYear(); // Уникальное имя
-      const conv_month = String(conv_mskDate.getUTCMonth() + 1).padStart(2, '0'); // Уникальное имя
-      const conv_day = String(conv_mskDate.getUTCDate()).padStart(2, '0'); // Уникальное имя
-      const conv_dateStr = `${conv_year}-${conv_month}-${conv_day}`; // Уникальное имя
+      const conv_year = conv_mskDate.getUTCFullYear();
+      const conv_month = String(conv_mskDate.getUTCMonth() + 1).padStart(2, '0');
+      const conv_day = String(conv_mskDate.getUTCDate()).padStart(2, '0');
+      const conv_dateStr = `${conv_year}-${conv_month}-${conv_day}`;
 
-      // Форматируем время (HH:MM:SS)
-      const conv_hours = String(conv_mskDate.getUTCHours()).padStart(2, '0'); // Уникальное имя
-      const conv_minutes = String(conv_mskDate.getUTCMinutes()).padStart(2, '0'); // Уникальное имя
-      const conv_seconds = String(conv_mskDate.getUTCSeconds()).padStart(2, '0'); // Уникальное имя
-      const conv_timeStr = `${conv_hours}:${conv_minutes}:${conv_seconds}`; // Уникальное имя
+      const conv_hours = String(conv_mskDate.getUTCHours()).padStart(2, '0');
+      const conv_minutes = String(conv_mskDate.getUTCMinutes()).padStart(2, '0');
+      const conv_seconds = String(conv_mskDate.getUTCSeconds()).padStart(2, '0');
+      const conv_timeStr = `${conv_hours}:${conv_minutes}:${conv_seconds}`;
 
-      // Формируем URL пикселя с sub_id_22 (дата) и sub_id_23 (время)
-      const conv_pixelUrl = `${conv_address}&sub_id_22=${encodeURIComponent(conv_dateStr)}&sub_id_23=${encodeURIComponent(conv_timeStr)}`; // Уникальное имя
-      console.log('Отправка Keitaro пикселя:', conv_pixelUrl); // Логирование для отладки
+      const conv_pixelUrl = `${conv_address}&sub_id_22=${encodeURIComponent(conv_dateStr)}&sub_id_23=${encodeURIComponent(conv_timeStr)}`;
+      console.log('Отправка Keitaro пикселя:', conv_pixelUrl);
 
       // Отправляем пиксель
       createPixel(conv_pixelUrl);
@@ -137,8 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
       img.src = url;
       img.referrerPolicy = 'no-referrer-when-downgrade';
       img.style.display = 'none';
-      img.onload = () => console.log('Keitaro пиксель успешно загружен:', url); // Логирование успеха
-      img.onerror = () => console.error('Ошибка загрузки Keitaro пикселя:', url); // Логирование ошибки
+      img.onload = () => console.log('Keitaro пиксель успешно загружен:', url);
+      img.onerror = () => console.error('Ошибка загрузки Keitaro пикселя:', url);
       document.body.appendChild(img);
     } catch (error) {
       console.error('Ошибка в createPixel:', error);
