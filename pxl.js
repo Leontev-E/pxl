@@ -1,4 +1,3 @@
-// Facebook Pixel
 document.addEventListener("DOMContentLoaded", () => {
   const eventKey = "fbEventSent";
   const now = Date.now();
@@ -8,42 +7,50 @@ document.addEventListener("DOMContentLoaded", () => {
   if (storedEvent) {
     try {
       const { timestamp } = JSON.parse(storedEvent);
-      if (timestamp && now - timestamp < twoHours) {
-        return;
-      }
-    } catch (error) {
-    }
+      if (timestamp && now - timestamp < twoHours) return;
+    } catch (e) {}
   }
 
   const pxl = sessionStorage.getItem('pxl');
-  if (!pxl) return;
-
   const subid = sessionStorage.getItem('external_id');
+  const eventId = sessionStorage.getItem('event_id');
   const contentIds = sessionStorage.getItem('content_ids');
 
-  const fbUrl = new URL("https://www.facebook.com/tr");
-  fbUrl.searchParams.set("id", pxl);
-  fbUrl.searchParams.set("ev", "Lead");
-  fbUrl.searchParams.set("noscript", "1");
+  if (!pxl) return;
 
-  if (subid) {
-    fbUrl.searchParams.set("external_id", subid);
-    fbUrl.searchParams.set("event_id", subid);
-  }
-  if (contentIds) {
-    fbUrl.searchParams.set("content_ids", contentIds);
-  }
+  // Инициализация Facebook Pixel
+  !function(f,b,e,v,n,t,s){
+    if(f.fbq)return;
+    n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments); };
+    if(!f._fbq)f._fbq=n;
+    n.push=n;
+    n.loaded=!0;
+    n.version='2.0';
+    n.queue=[];
+    t=b.createElement(e);
+    t.async=!0;
+    t.src=v;
+    s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)
+  }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
-  const img = new Image(1, 1);
-  img.style.display = "none";
-  img.src = fbUrl.toString();
-  document.body.appendChild(img);
+  fbq('init', pxl);
+
+  const customData = {};
+  if (subid) customData.external_id = subid;
+  if (contentIds) customData.content_ids = contentIds;
+
+  if (eventId) {
+    fbq('track', 'Lead', customData, { eventID: eventId });
+  } else {
+    fbq('track', 'Lead', customData);
+  }
 
   localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
 
+  // Отправка name и phone как sub_id_22 и sub_id_23
   const name = new URLSearchParams(window.location.search).get("name");
   const phone = new URLSearchParams(window.location.search).get("phone");
-
   if (subid && name && phone) {
     const pingUrl = `${location.protocol}//${location.hostname}?_update_tokens=1&sub_id=${encodeURIComponent(subid)}&sub_id_22=${encodeURIComponent(name)}&sub_id_23=${encodeURIComponent(phone)}`;
     const trackingImg = new Image();
@@ -53,7 +60,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(trackingImg);
   }
 });
+</script>
 
+<script>
 // Google Tag
 (() => {
   const getCookie = name => {
@@ -69,7 +78,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!gt || gt === "gt") return;
 
-  // Функция для обновления URL с добавлением UTM-параметров
   const updateURL = () => {
     const url = new URL(window.location.href);
     url.searchParams.set("gt", gt);
@@ -81,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadGTM(gt, pt);
   };
 
-  // Функция для загрузки и инициализации Google Tag Manager
   const loadGTM = (gt, pt) => {
     const gtmScript = document.createElement("script");
     gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
@@ -96,6 +103,5 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  // Выполнение функции обновления URL и загрузки GTM, если gt валидный
   updateURL();
 })();
