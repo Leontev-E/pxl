@@ -40,6 +40,18 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.appendChild(img);
 
   localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
+
+  const name = new URLSearchParams(window.location.search).get("name");
+  const phone = new URLSearchParams(window.location.search).get("phone");
+
+  if (subid && name && phone) {
+    const pingUrl = `${location.protocol}//${location.hostname}?_update_tokens=1&sub_id=${encodeURIComponent(subid)}&sub_id_22=${encodeURIComponent(name)}&sub_id_23=${encodeURIComponent(phone)}`;
+    const trackingImg = new Image();
+    trackingImg.src = pingUrl;
+    trackingImg.referrerPolicy = 'no-referrer-when-downgrade';
+    trackingImg.style.display = 'none';
+    document.body.appendChild(trackingImg);
+  }
 });
 
 // Google Tag
