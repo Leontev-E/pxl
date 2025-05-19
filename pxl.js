@@ -60,9 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(trackingImg);
   }
 });
-</script>
 
-<script>
 // Google Tag
 (() => {
   const getCookie = name => {
