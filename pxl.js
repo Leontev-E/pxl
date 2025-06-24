@@ -87,19 +87,28 @@ document.addEventListener("DOMContentLoaded", () => {
     loadGTM(gt, pt);
   };
 
-  const loadGTM = (gt, pt) => {
-    const gtmScript = document.createElement("script");
-    gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
-    gtmScript.async = true;
-    document.head.appendChild(gtmScript);
-    gtmScript.onload = () => {
-      window.dataLayer = window.dataLayer || [];
-      const gtag = (...args) => dataLayer.push(args);
-      gtag("js", new Date());
-      gtag("config", gt);
-      gtag("event", "conversion", { send_to: `${gt}/${pt}` });
-    };
+const loadGTM = (gt, pt) => {
+  const gtmScript = document.createElement("script");
+  gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
+  gtmScript.async = true;
+  document.head.appendChild(gtmScript);
+
+  gtmScript.onload = () => {
+    window.dataLayer = window.dataLayer || [];
+    const gtag = (...args) => window.dataLayer.push(args);
+
+    gtag("js", new Date());
+    gtag("config", gt);
+
+    // ⬇️ ВАЖНО: вызов conversion ТОЛЬКО после полной загрузки
+    gtag("event", "conversion", {
+      send_to: `${gt}/${pt}`,
+      event_callback: function () {
+        console.log("✅ Конверсия отправлена в Google Ads");
+      }
+    });
   };
+};
 
   updateURL();
 })();
