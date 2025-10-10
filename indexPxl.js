@@ -78,7 +78,7 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
     placement: 'sub_id_3',
     buyer: 'sub_id_4',
     pxl: 'pxl',
-    // adset — пропускаем, уже обработан выше
+    ad: 'ad',
     gclid: 'gclid',
     gt: 'gt',
     pt: 'pt'
@@ -150,4 +150,5 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 })();
+
 
