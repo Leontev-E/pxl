@@ -57,52 +57,34 @@
 // Обработка переходов для domonetka
 if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
     try {
-       window.onpopstate = function (event) {
-  if (!event.state) return;
+        window.onpopstate = function (event) {
+            if (event.state) {
+                const currentUrlParams = new URLSearchParams(window.location.search);
+                const newUrlParams = new URLSearchParams();
 
-  const currentUrlParams = new URLSearchParams(window.location.search);
-  const newUrlParams = new URLSearchParams();
+                const paramMap = {
+                    source: 'source',
+                    ev: 'ev',
+                    acc: 'sub_id_2',
+                    placement: 'sub_id_3',
+                    buyer: 'sub_id_4',
+                    pxl: 'pxl',
+                    adset: 'sub_id_5',
+                    gclid: 'gclid',
+                    gt: 'gt',
+                    pt: 'pt'
+                };
 
-  // adset -> sub_id_5 / sub_id_10
-  const adsetRaw = currentUrlParams.get('adset');
-  if (adsetRaw) {
-    const [part1, ...rest] = adsetRaw.split('_');
-    const part2 = rest.join('_');
-    if (part1) newUrlParams.set('sub_id_5', part1);
-    if (part2) newUrlParams.set('sub_id_10', part2);
-  }
+                Object.entries(paramMap).forEach(([srcParam, targetParam]) => {
+                    if (currentUrlParams.has(srcParam)) {
+                        newUrlParams.set(targetParam, currentUrlParams.get(srcParam));
+                    }
+                });
 
-  // 🎯 ОСОБАЯ ОБРАБОТКА ad: добавить префикс 99
-  if (currentUrlParams.has('ad')) {
-    const raw = currentUrlParams.get('ad') || '';
-    const digits = raw.replace(/\D/g, '');
-    const withPrefix = digits.startsWith('99') ? digits : `99${digits}`;
-    if (withPrefix) newUrlParams.set('ad', withPrefix);
-  }
-
-  // Остальные параметры по мапе
-  const paramMap = {
-    source: 'source',
-    ev: 'ev',
-    acc: 'sub_id_2',
-    placement: 'sub_id_3',
-    buyer: 'sub_id_4',
-    pxl: 'pxl',
-    gclid: 'gclid',
-    gt: 'gt',
-    pt: 'pt'
-  };
-
-  Object.entries(paramMap).forEach(([srcParam, targetParam]) => {
-    if (currentUrlParams.has(srcParam)) {
-      const v = currentUrlParams.get(srcParam);
-      if (v != null && v !== '') newUrlParams.set(targetParam, v);
-    }
-  });
-
-  const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-  location.replace(newUrl);
-};
+                const newUrl = `${domonetka}?${newUrlParams.toString()}`;
+                location.replace(newUrl);
+            }
+        };
 
         for (let i = 0; i < 10; i++) {
             setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
@@ -159,6 +141,3 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 })();
-
-
-
