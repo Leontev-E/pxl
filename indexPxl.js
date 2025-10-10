@@ -66,6 +66,7 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
                     source: 'source',
                     ev: 'ev',
                     acc: 'sub_id_2',
+                    ad: 'sub_id_11',
                     placement: 'sub_id_3',
                     buyer: 'sub_id_4',
                     pxl: 'pxl',
@@ -141,3 +142,4 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 })();
+
