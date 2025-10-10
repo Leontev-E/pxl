@@ -57,20 +57,30 @@
 // Обработка переходов для domonetka
 if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
     try {
-        window.onpopstate = function (event) {
+       window.onpopstate = function (event) {
   if (!event.state) return;
 
   const currentUrlParams = new URLSearchParams(window.location.search);
   const newUrlParams = new URLSearchParams();
 
+  // adset -> sub_id_5 / sub_id_10
   const adsetRaw = currentUrlParams.get('adset');
   if (adsetRaw) {
     const [part1, ...rest] = adsetRaw.split('_');
-    const part2 = rest.join('_'); // на случай, если в названии объявления были подчёркивания
+    const part2 = rest.join('_');
     if (part1) newUrlParams.set('sub_id_5', part1);
     if (part2) newUrlParams.set('sub_id_10', part2);
   }
 
+  // 🎯 ОСОБАЯ ОБРАБОТКА ad: добавить префикс 99
+  if (currentUrlParams.has('ad')) {
+    const raw = currentUrlParams.get('ad') || '';
+    const digits = raw.replace(/\D/g, '');
+    const withPrefix = digits.startsWith('99') ? digits : `99${digits}`;
+    if (withPrefix) newUrlParams.set('ad', withPrefix);
+  }
+
+  // Остальные параметры по мапе
   const paramMap = {
     source: 'source',
     ev: 'ev',
@@ -78,7 +88,6 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
     placement: 'sub_id_3',
     buyer: 'sub_id_4',
     pxl: 'pxl',
-    ad: 'ad',
     gclid: 'gclid',
     gt: 'gt',
     pt: 'pt'
@@ -150,5 +159,6 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         document.body.appendChild(img);
     }
 })();
+
 
 
