@@ -143,3 +143,46 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
     }
 })();
 
+(function () {
+  function getCookie(name) {
+    const matches = document.cookie.match(
+      new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+    );
+    return matches ? decodeURIComponent(matches[1]) : null;
+  }
+
+  var subid = getCookie('_subid');
+  if (subid) {
+    // клик с Кейтаро, здесь аналитику не пишем
+    return;
+  }
+
+  // чтобы не спамить кликами на каждой перезагрузке
+  if (sessionStorage.getItem('analytics_click_logged') === '1') {
+    return;
+  }
+
+  var payload = {
+    domain: window.location.hostname,
+    subid: null
+  };
+
+  try {
+    fetch('https://analytics.boostclicks.ru/api/log-click.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data && data.success && data.click_id) {
+          sessionStorage.setItem('analytics_click_id', String(data.click_id));
+          sessionStorage.setItem('analytics_click_logged', '1');
+        }
+      })
+      .catch(function () { /* тихо падаем */ });
+  } catch (e) {
+    // игнор
+  }
+})();
+
