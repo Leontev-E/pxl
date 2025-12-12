@@ -117,3 +117,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateURL();
 })();
+
+(function () {
+  // если есть external_id, значит это клик через трекер — не трогаем
+  var subid = sessionStorage.getItem('external_id');
+  if (subid) {
+    return;
+  }
+
+  var params = new URLSearchParams(window.location.search);
+
+  function decodeSafe(value) {
+    if (!value) return '';
+    try {
+      return decodeURIComponent(value.replace(/\+/g, ' '));
+    } catch (e) {
+      return value;
+    }
+  }
+
+  var rawName = params.get('name') || '';
+  var rawPhone = params.get('phone') || '';
+
+  var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
+  var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
+
+  var clickId = sessionStorage.getItem('analytics_click_id') || null;
+
+  var payload = {
+    domain: window.location.hostname,
+    name: name,
+    phone: phone,
+    click_id: clickId ? parseInt(clickId, 10) : null,
+    subid: null
+  };
+
+  try {
+    fetch('https://analytics.boostclicks.ru/api/log-lead.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(function () { /* игнор */ });
+  } catch (e) {
+    // игнор
+  }
+})();
