@@ -152,20 +152,29 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
   }
 
   var subid = getCookie('_subid');
-  if (subid) {
-    // клик с Кейтаро, здесь аналитику не пишем
-    return;
-  }
+  if (subid) return; // клик из Keitaro — не логируем
 
-  // чтобы не спамить кликами на каждой перезагрузке
-  if (sessionStorage.getItem('analytics_click_logged') === '1') {
-    return;
-  }
+  if (sessionStorage.getItem('analytics_click_logged') === '1') return;
 
-  var payload = {
-    domain: window.location.hostname,
-    subid: null
+  var hostname = window.location.hostname;
+
+  var searchParams = new URLSearchParams(window.location.search);
+  var tags = {};
+  var allowKeys = {
+    source: 1, ev: 1, acc: 1, ad: 1, placement: 1, buyer: 1, adset: 1, ad_id: 1,
+    pxl: 1, gclid: 1, fbclid: 1, yclid: 1, ymclid: 1, gt: 1, pt: 1, utm_id: 1
   };
+
+  searchParams.forEach(function (value, key) {
+    if (!value) return;
+    var k = String(key).toLowerCase();
+    if (k.indexOf('utm_') === 0 || allowKeys[k]) {
+      tags[k] = value;
+    }
+  });
+
+  var payload = { domain: hostname, subid: null };
+  if (Object.keys(tags).length) payload.tags = tags;
 
   try {
     fetch('https://analytics.boostclicks.ru/api/log-click.php', {
@@ -173,15 +182,13 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (data && data.success && data.click_id) {
-          sessionStorage.setItem('analytics_click_id', String(data.click_id));
-          sessionStorage.setItem('analytics_click_logged', '1');
-        }
-      })
-      .catch(function () { /* тихо падаем */ });
-  } catch (e) {
-    // игнор
-  }
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.success && data.click_id) {
+        sessionStorage.setItem('analytics_click_id', String(data.click_id));
+        sessionStorage.setItem('analytics_click_logged', '1');
+      }
+    })
+    .catch(function () {});
+  } catch (e) {}
 })();
