@@ -118,39 +118,59 @@ document.addEventListener("DOMContentLoaded", () => {
   updateURL();
 })();
 
-    (function () {
-        var subid = sessionStorage.getItem('external_id');
-        if (subid) return;
+(function () {
+  var subid = sessionStorage.getItem('external_id');
+  if (subid) return; // клик с Keitaro — лид в нашу аналитику не пишем
 
-        var params = new URLSearchParams(window.location.search);
+  // антидубль на 2 часа
+  var key = 'analytics_lead_sent';
+  var now = Date.now();
+  var ttl = 7200 * 1000;
 
-        function decodeSafe(value) {
-            if (!value) return '';
-            try { return decodeURIComponent(value.replace(/\+/g, ' ')); }
-            catch (e) { return value; }
-        }
+  try {
+    var stored = localStorage.getItem(key);
+    if (stored) {
+      var obj = JSON.parse(stored);
+      if (obj && obj.ts && (now - obj.ts) < ttl) return;
+    }
+  } catch (e) {}
 
-        var rawName = params.get('name') || '';
-        var rawPhone = params.get('phone') || '';
+  var params = new URLSearchParams(window.location.search);
 
-        var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
-        var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
+  function decodeSafe(value) {
+    if (!value) return '';
+    try { return decodeURIComponent(value.replace(/\+/g, ' ')); }
+    catch (e) { return value; }
+  }
 
-        var clickId = sessionStorage.getItem('analytics_click_id') || null;
+  var rawName = params.get('name') || '';
+  var rawPhone = params.get('phone') || '';
 
-        var payload = {
-            domain: window.location.hostname,
-            name: name,
-            phone: phone,
-            click_id: clickId ? parseInt(clickId, 10) : null,
-            subid: null
-        };
+  var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
+  var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
 
-        try {
-            fetch('https://analytics.boostclicks.ru/api/log-lead.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).catch(function () { });
-        } catch (e) { }
-    })();
+  // если вообще пусто — можно не слать (по желанию)
+  // if (!name && !phone) return;
+
+  var clickId = sessionStorage.getItem('analytics_click_id') || null;
+
+  var payload = {
+    domain: window.location.hostname,
+    name: name,
+    phone: phone,
+    click_id: clickId ? parseInt(clickId, 10) : null,
+    subid: null
+  };
+
+  try {
+    fetch('https://analytics.boostclicks.ru/api/log-lead.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(function(){});
+  } catch (e) {}
+
+  try {
+    localStorage.setItem(key, JSON.stringify({ ts: now }));
+  } catch (e) {}
+})();
