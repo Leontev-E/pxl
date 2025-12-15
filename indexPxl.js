@@ -157,20 +157,38 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
   if (sessionStorage.getItem('analytics_click_logged') === '1') return;
 
   var hostname = window.location.hostname;
-
   var searchParams = new URLSearchParams(window.location.search);
-  var tags = {};
-  var allowKeys = {
-    source: 1, ev: 1, acc: 1, ad: 1, placement: 1, buyer: 1, adset: 1, ad_id: 1,
-    pxl: 1, gclid: 1, fbclid: 1, yclid: 1, ymclid: 1, gt: 1, pt: 1, utm_id: 1
-  };
 
+  function decodeSafe(value) {
+    if (!value) return '';
+    try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
+    catch (e) { return String(value); }
+  }
+
+  // ✅ только нужные ключи
+  var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+  var tags = {};
+
+  // 1) сначала берем из URL
   searchParams.forEach(function (value, key) {
     if (!value) return;
     var k = String(key).toLowerCase();
-    if (k.indexOf('utm_') === 0 || allowKeys[k]) {
-      tags[k] = value;
-    }
+    if (!allow[k]) return;
+
+    var v = decodeSafe(value).trim();
+    if (!v) return;
+
+    tags[k] = v.slice(0, 200);
+  });
+
+  // 2) если каких-то нет в URL — добираем из cookie (ты их уже ставишь в первом большом скрипте)
+  Object.keys(allow).forEach(function (k) {
+    if (tags[k]) return;
+    var cv = getCookie(k);
+    if (!cv) return;
+    cv = decodeSafe(cv).trim();
+    if (!cv) return;
+    tags[k] = cv.slice(0, 200);
   });
 
   var payload = { domain: hostname, subid: null };
@@ -180,7 +198,8 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
     fetch('https://analytics.boostclicks.ru/api/log-click.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      keepalive: true
     })
     .then(function (res) { return res.json(); })
     .then(function (data) {
