@@ -144,70 +144,85 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
 })();
 
 (function () {
-  function getCookie(name) {
-    const matches = document.cookie.match(
-      new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
-    );
-    return matches ? decodeURIComponent(matches[1]) : null;
-  }
+    function getCookie(name) {
+        const matches = document.cookie.match(
+            new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+        );
+        return matches ? decodeURIComponent(matches[1]) : null;
+    }
 
-  var subid = getCookie('_subid');
-  if (subid) return; // клик из Keitaro — не логируем
+    var subid = getCookie('_subid');
+    var hostname = window.location.hostname;
 
-  if (sessionStorage.getItem('analytics_click_logged') === '1') return;
+    // avoid duplicate logging on reloads
+    if (sessionStorage.getItem('analytics_click_logged') === '1') {
+        return;
+    }
 
-  var hostname = window.location.hostname;
-  var searchParams = new URLSearchParams(window.location.search);
+    var searchParams = new URLSearchParams(window.location.search);
+    var tags = {};
+    var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+    function decodeSafe(value) {
+        if (!value) return '';
+        try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
+        catch (e) { return String(value); }
+    }
 
-  function decodeSafe(value) {
-    if (!value) return '';
-    try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
-    catch (e) { return String(value); }
-  }
+    var tagKeys = new Set([
+        'source', 'ev', 'acc', 'ad', 'placement', 'buyer', 'adset', 'ad_id',
+        'pxl', 'gclid', 'fbclid', 'yclid', 'ymclid', 'gt', 'pt', 'utm_id'
+    ]);
 
-  // ✅ только нужные ключи
-  var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
-  var tags = {};
+    searchParams.forEach(function (value, key) {
+        if (!value) {
+            return;
+        }
+        var normalizedKey = key.toLowerCase();
+        if (normalizedKey.indexOf('utm_') === 0 || tagKeys.has(normalizedKey) || allow[normalizedKey]) {
+            var v = decodeSafe(value).trim();
+            if (v) {
+                tags[normalizedKey] = v.slice(0, 200);
+            }
+        }
+    });
 
-  // 1) сначала берем из URL
-  searchParams.forEach(function (value, key) {
-    if (!value) return;
-    var k = String(key).toLowerCase();
-    if (!allow[k]) return;
+    // добираем из cookie, если в url не было
+    Object.keys(allow).forEach(function (k) {
+        if (tags[k]) return;
+        var cv = getCookie(k);
+        if (!cv) return;
+        cv = decodeSafe(cv).trim();
+        if (!cv) return;
+        tags[k] = cv.slice(0, 200);
+    });
 
-    var v = decodeSafe(value).trim();
-    if (!v) return;
+    var payload = {
+        domain: hostname,
+        subid: subid || null
+    };
 
-    tags[k] = v.slice(0, 200);
-  });
+    if (Object.keys(tags).length > 0) {
+        payload.tags = tags;
+        try { sessionStorage.setItem('analytics_tags', JSON.stringify(tags)); } catch (e) { }
+    } else {
+        try { sessionStorage.removeItem('analytics_tags'); } catch (e) { }
+    }
 
-  // 2) если каких-то нет в URL — добираем из cookie (ты их уже ставишь в первом большом скрипте)
-  Object.keys(allow).forEach(function (k) {
-    if (tags[k]) return;
-    var cv = getCookie(k);
-    if (!cv) return;
-    cv = decodeSafe(cv).trim();
-    if (!cv) return;
-    tags[k] = cv.slice(0, 200);
-  });
-
-  var payload = { domain: hostname, subid: null };
-  if (Object.keys(tags).length) payload.tags = tags;
-
-  try {
-    fetch('https://analytics.boostclicks.ru/api/log-click.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      keepalive: true
-    })
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      if (data && data.success && data.click_id) {
-        sessionStorage.setItem('analytics_click_id', String(data.click_id));
-        sessionStorage.setItem('analytics_click_logged', '1');
-      }
-    })
-    .catch(function () {});
-  } catch (e) {}
+    try {
+        fetch('https://analytics.boostclicks.ru/api/log-click.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.success && data.click_id) {
+                    sessionStorage.setItem('analytics_click_id', String(data.click_id));
+                    sessionStorage.setItem('analytics_click_logged', '1');
+                }
+            })
+            .catch(function () { /* ignore silently */ });
+    } catch (e) {
+        // ignore
+    }
 })();
