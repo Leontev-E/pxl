@@ -152,36 +152,62 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
   }
 
   var subid = getCookie('_subid');
-  if (subid) {
-    // клик с Кейтаро, здесь аналитику не пишем
-    return;
+  if (subid) return; // клик из Keitaro — не логируем
+
+  if (sessionStorage.getItem('analytics_click_logged') === '1') return;
+
+  var hostname = window.location.hostname;
+  var searchParams = new URLSearchParams(window.location.search);
+
+  function decodeSafe(value) {
+    if (!value) return '';
+    try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
+    catch (e) { return String(value); }
   }
 
-  // чтобы не спамить кликами на каждой перезагрузке
-  if (sessionStorage.getItem('analytics_click_logged') === '1') {
-    return;
-  }
+  // ✅ только нужные ключи
+  var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+  var tags = {};
 
-  var payload = {
-    domain: window.location.hostname,
-    subid: null
-  };
+  // 1) сначала берем из URL
+  searchParams.forEach(function (value, key) {
+    if (!value) return;
+    var k = String(key).toLowerCase();
+    if (!allow[k]) return;
+
+    var v = decodeSafe(value).trim();
+    if (!v) return;
+
+    tags[k] = v.slice(0, 200);
+  });
+
+  // 2) если каких-то нет в URL — добираем из cookie (ты их уже ставишь в первом большом скрипте)
+  Object.keys(allow).forEach(function (k) {
+    if (tags[k]) return;
+    var cv = getCookie(k);
+    if (!cv) return;
+    cv = decodeSafe(cv).trim();
+    if (!cv) return;
+    tags[k] = cv.slice(0, 200);
+  });
+
+  var payload = { domain: hostname, subid: null };
+  if (Object.keys(tags).length) payload.tags = tags;
 
   try {
     fetch('https://analytics.boostclicks.ru/api/log-click.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      keepalive: true
     })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (data && data.success && data.click_id) {
-          sessionStorage.setItem('analytics_click_id', String(data.click_id));
-          sessionStorage.setItem('analytics_click_logged', '1');
-        }
-      })
-      .catch(function () { /* тихо падаем */ });
-  } catch (e) {
-    // игнор
-  }
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.success && data.click_id) {
+        sessionStorage.setItem('analytics_click_id', String(data.click_id));
+        sessionStorage.setItem('analytics_click_logged', '1');
+      }
+    })
+    .catch(function () {});
+  } catch (e) {}
 })();
