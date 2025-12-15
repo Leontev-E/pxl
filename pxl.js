@@ -167,8 +167,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
         var getCookie = function (name) {
-            var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\\]\\/\\+^])/g, '\\$1') + '=([^;]*)'));
-            return m ? decodeURIComponent(m[1]) : null;
+            var full = '; ' + document.cookie;
+            var parts = full.split('; ' + name + '=');
+            if (parts.length < 2) return null;
+            return decodeSafe(parts.pop().split(';').shift());
         };
         Object.keys(allow).forEach(function (k) {
             if (t[k]) return;
