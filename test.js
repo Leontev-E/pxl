@@ -144,47 +144,87 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
 })();
 
 (function () {
-  function getCookie(name) {
-    const matches = document.cookie.match(
-      new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
-    );
-    return matches ? decodeURIComponent(matches[1]) : null;
-  }
+    function getCookie(name) {
+        const matches = document.cookie.match(
+            new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+        );
+        return matches ? decodeURIComponent(matches[1]) : null;
+    }
 
-  var subid = getCookie('_subid');
-  if (subid) {
-    // клик с Кейтаро, здесь аналитику не пишем
-    return;
-  }
+    var subid = getCookie('_subid');
+    var hostname = window.location.hostname;
 
-  // чтобы не спамить кликами на каждой перезагрузке
-  if (sessionStorage.getItem('analytics_click_logged') === '1') {
-    return;
-  }
+    // avoid duplicate logging on reloads
+    if (sessionStorage.getItem('analytics_click_logged') === '1') {
+        return;
+    }
 
-  var payload = {
-    domain: window.location.hostname,
-    subid: null
-  };
+    var searchParams = new URLSearchParams(window.location.search);
+    var tags = {};
+    var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+    function decodeSafe(value) {
+        if (!value) return '';
+        try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
+        catch (e) { return String(value); }
+    }
 
-  try {
-    fetch('https://analytics.boostclicks.ru/api/log-click.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (data && data.success && data.click_id) {
-          sessionStorage.setItem('analytics_click_id', String(data.click_id));
-          sessionStorage.setItem('analytics_click_logged', '1');
+    var tagKeys = new Set([
+        'source', 'ev', 'acc', 'ad', 'placement', 'buyer', 'adset', 'ad_id',
+        'pxl', 'gclid', 'fbclid', 'yclid', 'ymclid', 'gt', 'pt', 'utm_id'
+    ]);
+
+    searchParams.forEach(function (value, key) {
+        if (!value) {
+            return;
         }
-      })
-      .catch(function () { /* тихо падаем */ });
-  } catch (e) {
-    // игнор
-  }
-})();
+        var normalizedKey = key.toLowerCase();
+        if (normalizedKey.indexOf('utm_') === 0 || tagKeys.has(normalizedKey) || allow[normalizedKey]) {
+            var v = decodeSafe(value).trim();
+            if (v) {
+                tags[normalizedKey] = v.slice(0, 200);
+            }
+        }
+    });
+
+    // добираем из cookie, если в url не было
+    Object.keys(allow).forEach(function (k) {
+        if (tags[k]) return;
+        var cv = getCookie(k);
+        if (!cv) return;
+        cv = decodeSafe(cv).trim();
+        if (!cv) return;
+        tags[k] = cv.slice(0, 200);
+    });
+
+    var payload = {
+        domain: hostname,
+        subid: subid || null
+    };
+
+    if (Object.keys(tags).length > 0) {
+        payload.tags = tags;
+        try { sessionStorage.setItem('analytics_tags', JSON.stringify(tags)); } catch (e) { }
+    } else {
+        try { sessionStorage.removeItem('analytics_tags'); } catch (e) { }
+    }
+
+    try {
+        fetch('https://analytics.boostclicks.ru/api/log-click.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.success && data.click_id) {
+                    sessionStorage.setItem('analytics_click_id', String(data.click_id));
+                    sessionStorage.setItem('analytics_click_logged', '1');
+                }
+            })
+            .catch(function () { /* ignore silently */ });
+    } catch (e) {
+        // ignore
+    }
 
 ------------
     pxl
