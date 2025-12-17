@@ -119,99 +119,97 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 
 (function () {
-  // 1) Если это лид с Keitaro subid (external_id) — не логируем (сервер всё равно заблокирует)
-  var trackerSubid = sessionStorage.getItem('external_id');
-  if (trackerSubid) return;
-
-  // 2) Берём наш внутренний сабайди (если есть) и приводим к формату, который сервер разрешает
-  // Сервер пропускает subid только если он начинается с "boostclicks_"
-  var boost = sessionStorage.getItem('boostclicks_subid');
-  var subid = null;
-
-  if (boost) {
-    boost = String(boost).trim();
-    subid = boost.indexOf('boostclicks_') === 0 ? boost : ('boostclicks_' + boost);
-  }
-
-  var hostname = window.location.hostname;
-  var isSubdomain = ((hostname.match(/\./g) || []).length > 1);
-
-  // do not log lead if coming from subdomain (сервер тоже режет поддомены)
-  if (isSubdomain) return;
-
-  var params = new URLSearchParams(window.location.search);
-
-  function decodeSafe(value) {
-    if (!value) return '';
-    try { return decodeURIComponent(value.replace(/\+/g, ' ')); }
-    catch (e) { return value; }
-  }
-
-  var rawName = params.get('name') || '';
-  var rawPhone = params.get('phone') || '';
-
-  var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
-  var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
-
-  var clickId = sessionStorage.getItem('analytics_click_id') || null;
-
-  var tags = null;
-  try {
-    var storedTags = sessionStorage.getItem('analytics_tags');
-    if (storedTags) {
-      var parsed = JSON.parse(storedTags);
-      if (parsed && typeof parsed === 'object') {
-        tags = parsed;
-      }
+    // Берём сабайди: если boostclicks — логируем, если чужой трекер — не шлём.
+    var trackerSubid = sessionStorage.getItem('external_id') || sessionStorage.getItem('boostclicks_subid');
+    var subid = null;
+    if (trackerSubid) {
+        trackerSubid = String(trackerSubid).trim();
+        if (trackerSubid.indexOf('boostclicks_') === 0) {
+            subid = trackerSubid;
+        } else {
+            return; // чужой трекер, сервер всё равно заблокирует
+        }
     }
-  } catch (e) { }
 
-  if (!tags) {
-    // fallback: собрать из URL/cookie, если по какой-то причине не сохранили на клике
-    var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
-    var searchParams = new URLSearchParams(window.location.search);
-    var t = {};
-    searchParams.forEach(function (value, key) {
-      if (!value) return;
-      var k = String(key).toLowerCase();
-      if (k.indexOf('utm_') === 0 || allow[k]) {
-        var v = decodeSafe(value).trim();
-        if (v) t[k] = v.slice(0, 200);
-      }
-    });
-    var getCookie = function (name) {
-      var full = '; ' + document.cookie;
-      var parts = full.split('; ' + name + '=');
-      if (parts.length < 2) return null;
-      return decodeSafe(parts.pop().split(';').shift());
+    var hostname = window.location.hostname;
+    var isSubdomain = ((hostname.match(/\./g) || []).length > 1);
+
+    // do not log lead if coming from subdomain (сервер тоже режет поддомены)
+    if (isSubdomain) return;
+
+    var params = new URLSearchParams(window.location.search);
+
+    function decodeSafe(value) {
+        if (!value) return '';
+        try { return decodeURIComponent(value.replace(/\+/g, ' ')); }
+        catch (e) { return value; }
+    }
+
+    var rawName = params.get('name') || '';
+    var rawPhone = params.get('phone') || '';
+
+    var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
+    var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
+
+    var clickId = sessionStorage.getItem('analytics_click_id') || null;
+
+    var tags = null;
+    try {
+        var storedTags = sessionStorage.getItem('analytics_tags');
+        if (storedTags) {
+            var parsed = JSON.parse(storedTags);
+            if (parsed && typeof parsed === 'object') {
+                tags = parsed;
+            }
+        }
+    } catch (e) { }
+
+    if (!tags) {
+        // fallback: собрать из URL/cookie, если по какой-то причине не сохранили на клике
+        var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+        var searchParams = new URLSearchParams(window.location.search);
+        var t = {};
+        searchParams.forEach(function (value, key) {
+            if (!value) return;
+            var k = String(key).toLowerCase();
+            if (k.indexOf('utm_') === 0 || allow[k]) {
+                var v = decodeSafe(value).trim();
+                if (v) t[k] = v.slice(0, 200);
+            }
+        });
+        var getCookie = function (name) {
+            var full = '; ' + document.cookie;
+            var parts = full.split('; ' + name + '=');
+            if (parts.length < 2) return null;
+            return decodeSafe(parts.pop().split(';').shift());
+        };
+        Object.keys(allow).forEach(function (k) {
+            if (t[k]) return;
+            var cv = getCookie(k);
+            if (!cv) return;
+            cv = decodeSafe(cv).trim();
+            if (cv) t[k] = cv.slice(0, 200);
+        });
+        if (Object.keys(t).length) tags = t;
+    }
+
+    var payload = {
+        domain: hostname,
+        name: name,
+        phone: phone,
+        click_id: clickId ? parseInt(clickId, 10) : null,
+        subid: subid
     };
-    Object.keys(allow).forEach(function (k) {
-      if (t[k]) return;
-      var cv = getCookie(k);
-      if (!cv) return;
-      cv = decodeSafe(cv).trim();
-      if (cv) t[k] = cv.slice(0, 200);
-    });
-    if (Object.keys(t).length) tags = t;
-  }
 
-  var payload = {
-    domain: hostname,
-    name: name,
-    phone: phone,
-    click_id: clickId ? parseInt(clickId, 10) : null,
-    subid: subid
-  };
+    if (tags && Object.keys(tags).length) {
+        payload.tags = tags;
+    }
 
-  if (tags && Object.keys(tags).length) {
-    payload.tags = tags;
-  }
-
-  try {
-    fetch('https://analytics.boostclicks.ru/api/log-lead.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(function () { });
-  } catch (e) { }
+    try {
+        fetch('https://analytics.boostclicks.ru/api/log-lead.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(function () { });
+    } catch (e) { }
 })();
