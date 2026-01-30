@@ -61,6 +61,75 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+  // =========================
+// TikTok Pixel (Lead)
+// =========================
+(function () {
+    const now = Date.now();
+    const twoHours = 7200 * 1000;
+
+    const ttPixel = (sessionStorage.getItem('tt_pixel') || '').trim();
+    if (!ttPixel) return;
+    if (!/^[A-Za-z0-9]+$/.test(ttPixel)) return;
+
+    const subid = (sessionStorage.getItem('external_id') || '').trim();
+    const eventId = (sessionStorage.getItem('event_id') || '').trim();
+    const contentIds = sessionStorage.getItem('content_ids');
+
+    const ttKey = "ttEventSent";
+    const stored = localStorage.getItem(ttKey);
+    if (stored) {
+        try {
+            const { timestamp } = JSON.parse(stored);
+            if (timestamp && now - timestamp < twoHours) return;
+        } catch (e) { }
+    }
+
+    !function (w, d, t) {
+        w.TiktokAnalyticsObject = t;
+        var ttq = w[t] = w[t] || [];
+        ttq.methods = ["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+        ttq.setAndDefer = function (t, e) {
+            t[e] = function () { t.push([e].concat([].slice.call(arguments, 0))); };
+        };
+        for (var i = 0; i < ttq.methods.length; i++) ttq.setAndDefer(ttq, ttq.methods[i]);
+        ttq.instance = function (t) {
+            for (var e = ttq._i[t] || [], n = 0; n < ttq.methods.length; n++) ttq.setAndDefer(e, ttq.methods[n]);
+            return e;
+        };
+        ttq.load = function (e, n) {
+            var i = "https://analytics.tiktok.com/i18n/pixel/events.js";
+            ttq._i = ttq._i || {};
+            ttq._i[e] = [];
+            ttq._i[e]._u = i;
+            ttq._t = ttq._t || {};
+            ttq._t[e] = +new Date;
+            ttq._o = ttq._o || {};
+            ttq._o[e] = n || {};
+            var o = d.createElement("script");
+            o.type = "text/javascript";
+            o.async = !0;
+            o.src = i + "?sdkid=" + e + "&lib=" + t;
+            var a = d.getElementsByTagName("script")[0];
+            a.parentNode.insertBefore(o, a);
+        };
+
+        ttq.load(ttPixel);
+        ttq.page();
+    }(window, document, 'ttq');
+
+    try {
+        const ttData = {};
+        if (subid) ttData.external_id = subid;
+        if (contentIds) ttData.content_ids = contentIds;
+
+        window.ttq && window.ttq.track && window.ttq.track('Lead', ttData);
+    } catch (e) { }
+
+    localStorage.setItem(ttKey, JSON.stringify({ timestamp: now }));
+})();
+
+
 // Google Tag
 (() => {
     const getCookie = name => {
@@ -213,3 +282,4 @@ document.addEventListener("DOMContentLoaded", () => {
         }).catch(function () { });
     } catch (e) { }
 })();
+
