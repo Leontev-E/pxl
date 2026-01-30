@@ -75,6 +75,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const pxl = urlParams.get('pxl') || '';
+    const ttPixel = urlParams.get('pixel') || '';
     const contentIds = urlParams.get('content_ids');
     const subidCookie = getCookie('_subid');
     const subid = (subidCookie && subidCookie !== '{subid}') ? subidCookie : (window.__boostclicksSubidOverride || null);
@@ -90,6 +91,7 @@
     setSessionItem('external_id', subid);
     setSessionItem('event_id', subid);
     setSessionItem('content_ids', contentIds);
+    setSessionItem('tt_pixel', ttPixel);
 
     if (domonetkaActive) {
         setSessionItem('dom', domonetka);
@@ -313,3 +315,4 @@
         // ignore
     }
 })();
+
