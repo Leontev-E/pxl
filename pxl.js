@@ -61,8 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-  // =========================
-// TikTok Pixel (Lead)
+// =========================
+// currency: USD
+// value: 10..20
+// content_id: random
 // =========================
 (function () {
     const now = Date.now();
@@ -73,8 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!/^[A-Za-z0-9]+$/.test(ttPixel)) return;
 
     const subid = (sessionStorage.getItem('external_id') || '').trim();
-    const eventId = (sessionStorage.getItem('event_id') || '').trim();
-    const contentIds = sessionStorage.getItem('content_ids');
 
     const ttKey = "ttEventSent";
     const stored = localStorage.getItem(ttKey);
@@ -84,6 +84,19 @@ document.addEventListener("DOMContentLoaded", () => {
             if (timestamp && now - timestamp < twoHours) return;
         } catch (e) { }
     }
+
+    function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function randContentId() {
+        // Короткий стабильный формат для тиктока: буквы/цифры/подчёркивание/дефис
+        const part = Math.random().toString(36).slice(2, 10);
+        return "sku_" + part;
+    }
+
+    const contentId = randContentId();
+    const value = randInt(10, 20);
 
     !function (w, d, t) {
         w.TiktokAnalyticsObject = t;
@@ -119,16 +132,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }(window, document, 'ttq');
 
     try {
-        const ttData = {};
+        const ttData = {
+            content_type: 'product',
+            currency: 'USD',
+            value: value,
+            // чтобы закрыть warning VSA:
+            content_id: contentId,
+            // и современный формат:
+            content_ids: [contentId]
+        };
+
         if (subid) ttData.external_id = subid;
-        if (contentIds) ttData.content_ids = contentIds;
 
         window.ttq && window.ttq.track && window.ttq.track('Purchase', ttData);
     } catch (e) { }
 
     localStorage.setItem(ttKey, JSON.stringify({ timestamp: now }));
 })();
-
 
 // Google Tag
 (() => {
@@ -282,5 +302,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }).catch(function () { });
     } catch (e) { }
 })();
+
 
 
