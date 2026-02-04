@@ -40,6 +40,34 @@
         }
     }
 
+    function uniqueFallbackSubid() {
+        var ts = Date.now();
+        var rand = Math.random().toString(36).slice(2, 8);
+        return 'boostclicks_' + hostname + '_' + ts + '_' + rand;
+    }
+
+    function attachSubmitHandler() {
+        var handler = function (e) {
+            if (hasCookieSubid || isSubdomain(hostname)) return;
+            var latestCookie = getCookie('_subid');
+            if (latestCookie && latestCookie !== '{subid}') return;
+            var perSubmit = uniqueFallbackSubid();
+            fallbackSubid = perSubmit;
+            replacePlaceholderInputs(perSubmit);
+            try { sessionStorage.setItem('boostclicks_subid', perSubmit); } catch (e) { }
+            try { sessionStorage.setItem('external_id', perSubmit); } catch (e) { }
+            try { sessionStorage.setItem('event_id', perSubmit); } catch (e) { }
+            try { document.cookie = 'subidBC=' + encodeURIComponent(perSubmit) + '; path=/; max-age=7200'; } catch (e) { }
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                document.addEventListener('submit', handler, true);
+            });
+        } else {
+            document.addEventListener('submit', handler, true);
+        }
+    }
+
     var hostname = window.location.hostname;
     var cookieSubid = getCookie('_subid');
     var hasCookieSubid = cookieSubid && cookieSubid !== '{subid}';
@@ -61,6 +89,7 @@
         }, 2000);
     }
     scheduleFallbackSubid();
+    attachSubmitHandler();
 
     window.__boostclicksSubidOverride = fallbackSubid;
     window.__boostclicksShouldOverrideSubid = !hasCookieSubid && !isSubdomain(hostname);
