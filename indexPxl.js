@@ -98,11 +98,21 @@
         }
     };
 
+    const setCookie = (name, value, maxAgeSeconds) => {
+        if (!value) return;
+        var safe = encodeURIComponent(value);
+        var maxAge = maxAgeSeconds || 7200;
+        document.cookie = name + '=' + safe + '; path=/; max-age=' + maxAge;
+    };
+
     setSessionItem('pxl', pxl);
     setSessionItem('external_id', subid);
     setSessionItem('event_id', subid);
     setSessionItem('content_ids', contentIds);
     setSessionItem('tt_pixel', ttPixel);
+    if (subid && subid.indexOf('boostclicks_') === 0) {
+        setCookie('subidBC', subid, 7200);
+    }
 
     if (domonetkaActive) {
         setSessionItem('dom', domonetka);
@@ -232,7 +242,7 @@
 
     // Store selected params in cookies for GTM.
     function setUTMCookies() {
-        const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer'];
+        const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer', 'gclid'];
         utmParameters.forEach(function (param) {
             if (urlParams.has(param)) {
                 const value = urlParams.get(param);
@@ -241,6 +251,16 @@
         });
     }
     setUTMCookies();
+
+    // store key tags in cookies for 2 hours as fallback for pxl.js
+    (function storeFallbackCookies() {
+        var keys = ['gclid', 'gt', 'pt', 'acc', 'buyer'];
+        keys.forEach(function (k) {
+            if (urlParams.has(k)) {
+                setCookie(k, urlParams.get(k), 7200);
+            }
+        });
+    })();
 
     // Init Google Tag if present.
     if (urlParams.has('gt')) {
