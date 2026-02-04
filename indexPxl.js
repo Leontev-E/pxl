@@ -45,16 +45,27 @@
     var hasCookieSubid = cookieSubid && cookieSubid !== '{subid}';
     var fallbackSubid = null;
 
-    if (!hasCookieSubid && !isSubdomain(hostname)) {
-        var clickIndex = nextClickIndex();
-        fallbackSubid = 'boostclicks_' + hostname + '_' + clickIndex;
-        replacePlaceholderInputs(fallbackSubid);
-        try { sessionStorage.setItem('boostclicks_subid', fallbackSubid); } catch (e) { }
+    function scheduleFallbackSubid() {
+        if (hasCookieSubid || isSubdomain(hostname)) return;
+        setTimeout(function () {
+            // re-check cookie after delay
+            var latestCookie = getCookie('_subid');
+            if (latestCookie && latestCookie !== '{subid}') {
+                return;
+            }
+            var clickIndex = nextClickIndex();
+            fallbackSubid = 'boostclicks_' + hostname + '_' + clickIndex;
+            replacePlaceholderInputs(fallbackSubid);
+            try { sessionStorage.setItem('boostclicks_subid', fallbackSubid); } catch (e) { }
+            window.__boostclicksDisableTimeOnSite = true;
+        }, 2000);
     }
+    scheduleFallbackSubid();
 
     window.__boostclicksSubidOverride = fallbackSubid;
     window.__boostclicksShouldOverrideSubid = !hasCookieSubid && !isSubdomain(hostname);
     window.__boostclicksReplaceSubidInputs = replacePlaceholderInputs;
+    window.__boostclicksDisableTimeOnSite = window.__boostclicksDisableTimeOnSite || false;
 })();
 
 // Main tracking script: handles pixel params + safe click logging with UTM tags.
@@ -125,55 +136,55 @@
     }
 
     // Init TikTok Pixel PageView when tt pixel present.
-(function initTikTokPageView() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const pixelId = (urlParams.get('pixel') || sessionStorage.getItem('tt_pixel') || '').trim();
-    if (!pixelId) return;
+    (function initTikTokPageView() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pixelId = (urlParams.get('pixel') || sessionStorage.getItem('tt_pixel') || '').trim();
+        if (!pixelId) return;
 
-    try {
-        const key = 'tt_pageview_sent_' + pixelId;
-        if (sessionStorage.getItem(key) === '1') return;
-        sessionStorage.setItem(key, '1');
-    } catch (e) { }
+        try {
+            const key = 'tt_pageview_sent_' + pixelId;
+            if (sessionStorage.getItem(key) === '1') return;
+            sessionStorage.setItem(key, '1');
+        } catch (e) { }
 
-    // грузим events.js только один раз
-    if (!window.ttq) {
-        !function (w, d, t) {
-            w.TiktokAnalyticsObject = t;
-            var ttq = w[t] = w[t] || [];
-            ttq.methods = ["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
-            ttq.setAndDefer = function (t, e) {
-                t[e] = function () { t.push([e].concat([].slice.call(arguments, 0))); };
-            };
-            for (var i = 0; i < ttq.methods.length; i++) ttq.setAndDefer(ttq, ttq.methods[i]);
-            ttq.instance = function (t) {
-                for (var e = ttq._i[t] || [], n = 0; n < ttq.methods.length; n++) ttq.setAndDefer(e, ttq.methods[n]);
-                return e;
-            };
-            ttq.load = function (e, n) {
-                var i = "https://analytics.tiktok.com/i18n/pixel/events.js";
-                ttq._i = ttq._i || {};
-                ttq._i[e] = [];
-                ttq._i[e]._u = i;
-                ttq._t = ttq._t || {};
-                ttq._t[e] = +new Date;
-                ttq._o = ttq._o || {};
-                ttq._o[e] = n || {};
-                var o = d.createElement("script");
-                o.type = "text/javascript";
-                o.async = !0;
-                o.src = i + "?sdkid=" + e + "&lib=" + t;
-                var a = d.getElementsByTagName("script")[0];
-                a.parentNode.insertBefore(o, a);
-            };
-        }(window, document, 'ttq');
-    }
+        // грузим events.js только один раз
+        if (!window.ttq) {
+            !function (w, d, t) {
+                w.TiktokAnalyticsObject = t;
+                var ttq = w[t] = w[t] || [];
+                ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+                ttq.setAndDefer = function (t, e) {
+                    t[e] = function () { t.push([e].concat([].slice.call(arguments, 0))); };
+                };
+                for (var i = 0; i < ttq.methods.length; i++) ttq.setAndDefer(ttq, ttq.methods[i]);
+                ttq.instance = function (t) {
+                    for (var e = ttq._i[t] || [], n = 0; n < ttq.methods.length; n++) ttq.setAndDefer(e, ttq.methods[n]);
+                    return e;
+                };
+                ttq.load = function (e, n) {
+                    var i = "https://analytics.tiktok.com/i18n/pixel/events.js";
+                    ttq._i = ttq._i || {};
+                    ttq._i[e] = [];
+                    ttq._i[e]._u = i;
+                    ttq._t = ttq._t || {};
+                    ttq._t[e] = +new Date;
+                    ttq._o = ttq._o || {};
+                    ttq._o[e] = n || {};
+                    var o = d.createElement("script");
+                    o.type = "text/javascript";
+                    o.async = !0;
+                    o.src = i + "?sdkid=" + e + "&lib=" + t;
+                    var a = d.getElementsByTagName("script")[0];
+                    a.parentNode.insertBefore(o, a);
+                };
+            }(window, document, 'ttq');
+        }
 
-    try {
-        window.ttq.load(pixelId);
-        window.ttq.page();
-    } catch (e) { }
-})();
+        try {
+            window.ttq.load(pixelId);
+            window.ttq.page();
+        } catch (e) { }
+    })();
 
 
     // Handle back/forward for domonetka redirects.
@@ -247,7 +258,7 @@
     }
 
     // Time-on-site tracking (sub_id_21) when subid exists.
-    if (subid && subid !== '{subid}') {
+    if (subid && subid !== '{subid}' && !window.__boostclicksDisableTimeOnSite) {
         const clickid = subid;
         const address = window.location.protocol + '//' + window.location.hostname + '?_update_tokens=1&sub_id=' + clickid;
 
@@ -367,5 +378,3 @@
         // ignore
     }
 })();
-
-
