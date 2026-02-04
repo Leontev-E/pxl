@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (subid) ttData.external_id = subid;
         if (contentIds) ttData.content_ids = contentIds;
 
-        window.ttq && window.ttq.track && window.ttq.track('Lead', ttData);
+        window.ttq && window.ttq.track && window.ttq.track('Purchase', ttData);
     } catch (e) { }
 
     localStorage.setItem(ttKey, JSON.stringify({ timestamp: now }));
@@ -282,4 +282,5 @@ document.addEventListener("DOMContentLoaded", () => {
         }).catch(function () { });
     } catch (e) { }
 })();
+
 
