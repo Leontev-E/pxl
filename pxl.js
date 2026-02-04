@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
     !function (w, d, t) {
         w.TiktokAnalyticsObject = t;
         var ttq = w[t] = w[t] || [];
-        ttq.methods = ["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+        ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
         ttq.setAndDefer = function (t, e) {
             t[e] = function () { t.push([e].concat([].slice.call(arguments, 0))); };
         };
@@ -216,7 +216,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (trackerSubid.indexOf('boostclicks_') === 0) {
             subid = trackerSubid;
         } else {
-            return; // чужой трекер, сервер всё равно заблокирует
+            return;
+        }
+    } else {
+        var getCookie = function (name) {
+            var full = '; ' + document.cookie;
+            var parts = full.split('; ' + name + '=');
+            if (parts.length < 2) return null;
+            return decodeSafe(parts.pop().split(';').shift());
+        };
+        var cookieSubid = getCookie('subidBC');
+        if (cookieSubid) {
+            cookieSubid = String(cookieSubid).trim();
+            if (cookieSubid.indexOf('boostclicks_') === 0) {
+                subid = cookieSubid;
+            } else {
+                return;
+            }
+        } else {
+            return;
         }
     }
 
@@ -302,6 +320,3 @@ document.addEventListener("DOMContentLoaded", () => {
         }).catch(function () { });
     } catch (e) { }
 })();
-
-
-
