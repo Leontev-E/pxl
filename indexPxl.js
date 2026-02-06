@@ -1,10 +1,42 @@
-// Prepare fallback subid when cookie is missing on main domains.
+// indexPxl.js — unified, stable subid logic + pixels + click logging
+// Key rule: subid is NEVER overwritten once established (Keitaro _subid wins; otherwise long BoostClicks fallback).
+// Also: forms always get the established subid (even if submitted via form.submit()).
+
 (function () {
+    'use strict';
+
+    var KEITARO_COOKIE = '_subid';
+    var PLACEHOLDER_SUBID = '{subid}';
+    var FALLBACK_COOKIE = 'subidBC';
+    var FALLBACK_TTL = 7200; // 2h
+
     function getCookie(name) {
-        const matches = document.cookie.match(
-            new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
-        );
-        return matches ? decodeURIComponent(matches[1]) : null;
+        try {
+            var matches = document.cookie.match(
+                new RegExp('(?:^|; )' + name.replace(/([$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+            );
+            return matches ? decodeURIComponent(matches[1]) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function setCookie(name, value, maxAgeSeconds) {
+        if (!value) return;
+        var maxAge = maxAgeSeconds || FALLBACK_TTL;
+        try {
+            document.cookie =
+                name + '=' + encodeURIComponent(String(value)) + '; path=/; max-age=' + maxAge;
+        } catch (e) { }
+    }
+
+    function setSession(key, value) {
+        if (value === undefined || value === null || value === '') return;
+        try { sessionStorage.setItem(key, String(value)); } catch (e) { }
+    }
+
+    function getSession(key) {
+        try { return sessionStorage.getItem(key); } catch (e) { return null; }
     }
 
     function isSubdomain(hostname) {
@@ -13,91 +45,138 @@
         return normalized.split('.').length > 2;
     }
 
-    function nextClickIndex() {
-        var counter = 0;
-        try {
-            counter = parseInt(sessionStorage.getItem('boostclicks_click_counter'), 10) || 0;
-        } catch (e) { counter = 0; }
-        counter += 1;
-        try { sessionStorage.setItem('boostclicks_click_counter', String(counter)); } catch (e) { }
-        return counter;
+    function hostnameSafe() {
+        try { return (window.location.hostname || 'host').replace(/\s+/g, ''); }
+        catch (e) { return 'host'; }
     }
 
-    function replacePlaceholderInputs(value) {
-        if (!value) return;
-        var update = function () {
-            var inputs = document.querySelectorAll('form input[value="{subid}"], form input[data-boostclicks-subid="1"]');
-            inputs.forEach(function (input) {
-                input.value = value;
-                input.setAttribute('value', value);
-                input.setAttribute('data-boostclicks-subid', '1');
-            });
-        };
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', update);
-        } else {
-            update();
-        }
+    function hasValidKeitaroSubid() {
+        var c = getCookie(KEITARO_COOKIE);
+        return !!(c && c !== PLACEHOLDER_SUBID);
     }
 
-    function uniqueFallbackSubid() {
+    function makeLongSubid(hostname) {
         var ts = Date.now();
-        var rand = Math.random().toString(36).slice(2, 8);
+        var rand = Math.random().toString(36).slice(2, 10);
         return 'boostclicks_' + hostname + '_' + ts + '_' + rand;
     }
 
-    function attachSubmitHandler() {
-        var handler = function (e) {
-            if (hasCookieSubid || isSubdomain(hostname)) return;
-            var latestCookie = getCookie('_subid');
-            if (latestCookie && latestCookie !== '{subid}') return;
-            var perSubmit = uniqueFallbackSubid();
-            fallbackSubid = perSubmit;
-            replacePlaceholderInputs(perSubmit);
-            try { sessionStorage.setItem('boostclicks_subid', perSubmit); } catch (e) { }
-            try { sessionStorage.setItem('external_id', perSubmit); } catch (e) { }
-            try { sessionStorage.setItem('event_id', perSubmit); } catch (e) { }
-            try { document.cookie = 'subidBC=' + encodeURIComponent(perSubmit) + '; path=/; max-age=7200'; } catch (e) { }
-        };
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function () {
-                document.addEventListener('submit', handler, true);
-            });
-        } else {
-            document.addEventListener('submit', handler, true);
+    function replacePlaceholderInputs(subid) {
+        if (!subid) return;
+        var inputs;
+        try {
+            inputs = document.querySelectorAll(
+                'form input[value="' + PLACEHOLDER_SUBID + '"], form input[data-boostclicks-subid="1"]'
+            );
+        } catch (e) {
+            inputs = [];
+        }
+
+        for (var i = 0; i < inputs.length; i++) {
+            var input = inputs[i];
+            try {
+                input.value = subid;
+                input.setAttribute('value', subid);
+                input.setAttribute('data-boostclicks-subid', '1');
+            } catch (e) { }
         }
     }
 
-    var hostname = window.location.hostname;
-    var cookieSubid = getCookie('_subid');
-    var hasCookieSubid = cookieSubid && cookieSubid !== '{subid}';
-    var fallbackSubid = null;
+    // --------- Establish subid ONCE (Keitaro wins; else fallback long) ----------
+    function getEstablishedSubid() {
+        // 1) Keitaro cookie always wins
+        if (hasValidKeitaroSubid()) return getCookie(KEITARO_COOKIE);
 
-    function scheduleFallbackSubid() {
-        if (hasCookieSubid || isSubdomain(hostname)) return;
-        setTimeout(function () {
-            // re-check cookie after delay
-            var latestCookie = getCookie('_subid');
-            if (latestCookie && latestCookie !== '{subid}') {
-                return;
-            }
-            var clickIndex = nextClickIndex();
-            fallbackSubid = 'boostclicks_' + hostname + '_' + clickIndex;
-            replacePlaceholderInputs(fallbackSubid);
-            try { sessionStorage.setItem('boostclicks_subid', fallbackSubid); } catch (e) { }
-            window.__boostclicksDisableTimeOnSite = true;
-        }, 2000);
+        // 2) Session already established
+        var existing = getSession('external_id');
+        if (existing && existing !== PLACEHOLDER_SUBID) return existing;
+
+        // 3) Cookie fallback for navigation to thank-you page
+        var fromCookie = getCookie(FALLBACK_COOKIE);
+        if (fromCookie && fromCookie !== PLACEHOLDER_SUBID) return fromCookie;
+
+        // 4) Create long fallback
+        return makeLongSubid(hostnameSafe());
     }
-    scheduleFallbackSubid();
-    attachSubmitHandler();
 
-    window.__boostclicksSubidOverride = fallbackSubid;
-    window.__boostclicksShouldOverrideSubid = !hasCookieSubid && !isSubdomain(hostname);
-    window.__boostclicksReplaceSubidInputs = replacePlaceholderInputs;
+    function syncSubidEverywhere(subid) {
+        if (!subid) return;
+
+        // Important: do not overwrite if Keitaro exists (but we still sync storage for thank-you usage)
+        setSession('boostclicks_subid', subid);
+        setSession('external_id', subid);
+        setSession('event_id', subid);
+
+        // Keep cookie for 2 hours for thank-you page / cross-page usage
+        if (String(subid).indexOf('boostclicks_') === 0) {
+            setCookie(FALLBACK_COOKIE, subid, FALLBACK_TTL);
+        }
+
+        // Expose hooks for other IIFEs
+        window.__boostclicksSubidOverride = subid;
+    }
+
+    // Only override {subid} on MAIN domains when Keitaro cookie is missing
+    function shouldOverrideFormSubid() {
+        if (hasValidKeitaroSubid()) return false;
+        return !isSubdomain(hostnameSafe());
+    }
+
+    function ensureSubidApplied() {
+        var subid = getEstablishedSubid();
+
+        // Sync for thank-you logic
+        syncSubidEverywhere(subid);
+
+        // Fill forms only when Keitaro is absent and we're on main domain
+        if (shouldOverrideFormSubid()) {
+            replacePlaceholderInputs(subid);
+            // When fallback is used, your original logic disabled time-on-site
+            window.__boostclicksDisableTimeOnSite = true;
+        }
+
+        return subid;
+    }
+
+    // Export hooks expected by other parts of your script
     window.__boostclicksDisableTimeOnSite = window.__boostclicksDisableTimeOnSite || false;
+    window.__boostclicksReplaceSubidInputs = replacePlaceholderInputs;
+    window.__boostclicksShouldOverrideSubid = shouldOverrideFormSubid();
+
+    function attachSubmitHandler() {
+        // capture=true to run early
+        document.addEventListener('submit', function () {
+            try { ensureSubidApplied(); } catch (e) { }
+        }, true);
+    }
+
+    function patchNativeSubmit() {
+        if (window.__boostclicksFormSubmitPatched) return;
+        window.__boostclicksFormSubmitPatched = true;
+
+        var native = HTMLFormElement.prototype.submit;
+        HTMLFormElement.prototype.submit = function () {
+            try { ensureSubidApplied(); } catch (e) { }
+            return native.apply(this, arguments);
+        };
+    }
+
+    function initFallbackBlock() {
+        // Establish immediately so thank-you page can rely on sessionStorage/cookie
+        ensureSubidApplied();
+        attachSubmitHandler();
+        patchNativeSubmit();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFallbackBlock);
+    } else {
+        initFallbackBlock();
+    }
 })();
 
-// Main tracking script: handles pixel params + safe click logging with UTM tags.
+
+// Main tracking script: handles pixel params + domonetka + GTM + time-on-site.
 (function () {
     function getCookie(name) {
         const matches = document.cookie.match(
@@ -117,29 +196,39 @@
     const pxl = urlParams.get('pxl') || '';
     const ttPixel = urlParams.get('pixel') || '';
     const contentIds = urlParams.get('content_ids');
+
     const subidCookie = getCookie('_subid');
-    const subid = (subidCookie && subidCookie !== '{subid}') ? subidCookie : (window.__boostclicksSubidOverride || null);
+    const subid = (subidCookie && subidCookie !== '{subid}')
+        ? subidCookie
+        : (window.__boostclicksSubidOverride || sessionStorage.getItem('external_id') || null);
+
     const domonetkaActive = hasDomonetkaUrl();
 
     const setSessionItem = (key, value) => {
-        if (value) {
-            sessionStorage.setItem(key, value);
-        }
+        if (value === undefined || value === null || value === '') return;
+        try { sessionStorage.setItem(key, String(value)); } catch (e) { }
     };
 
     const setCookie = (name, value, maxAgeSeconds) => {
         if (!value) return;
-        var safe = encodeURIComponent(value);
+        var safe = encodeURIComponent(String(value));
         var maxAge = maxAgeSeconds || 7200;
-        document.cookie = name + '=' + safe + '; path=/; max-age=' + maxAge;
+        try {
+            document.cookie = name + '=' + safe + '; path=/; max-age=' + maxAge;
+        } catch (e) { }
     };
 
     setSessionItem('pxl', pxl);
-    setSessionItem('external_id', subid);
-    setSessionItem('event_id', subid);
     setSessionItem('content_ids', contentIds);
     setSessionItem('tt_pixel', ttPixel);
-    if (subid && subid.indexOf('boostclicks_') === 0) {
+
+    // Do NOT overwrite an existing external_id/event_id if already set
+    try {
+        if (!sessionStorage.getItem('external_id') && subid) setSessionItem('external_id', subid);
+        if (!sessionStorage.getItem('event_id') && subid) setSessionItem('event_id', subid);
+    } catch (e) { }
+
+    if (subid && String(subid).indexOf('boostclicks_') === 0) {
         setCookie('subidBC', subid, 7200);
     }
 
@@ -176,7 +265,6 @@
 
     // Init TikTok Pixel PageView when tt pixel present.
     (function initTikTokPageView() {
-        const urlParams = new URLSearchParams(window.location.search);
         const pixelId = (urlParams.get('pixel') || sessionStorage.getItem('tt_pixel') || '').trim();
         if (!pixelId) return;
 
@@ -186,7 +274,6 @@
             sessionStorage.setItem(key, '1');
         } catch (e) { }
 
-        // грузим events.js только один раз
         if (!window.ttq) {
             !function (w, d, t) {
                 w.TiktokAnalyticsObject = t;
@@ -224,7 +311,6 @@
             window.ttq.page();
         } catch (e) { }
     })();
-
 
     // Handle back/forward for domonetka redirects.
     if (domonetkaActive) {
@@ -264,24 +350,23 @@
                     history.pushState({}, '', window.location.href);
                 }, i * 50);
             }
-        } catch (error) {
-            console.error(error);
-        }
+        } catch (error) { }
     }
 
     // Store selected params in cookies for GTM.
-    function setUTMCookies() {
+    (function setUTMCookies() {
         const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer', 'gclid'];
         utmParameters.forEach(function (param) {
             if (urlParams.has(param)) {
                 const value = urlParams.get(param);
-                document.cookie = param + '=' + encodeURIComponent(value) + '; path=/; max-age=3600';
+                try {
+                    document.cookie = param + '=' + encodeURIComponent(value) + '; path=/; max-age=3600';
+                } catch (e) { }
             }
         });
-    }
-    setUTMCookies();
+    })();
 
-    // store key tags in cookies for 2 hours as fallback for pxl.js
+    // store key tags in cookies for 2 hours as fallback
     (function storeFallbackCookies() {
         var keys = ['gclid', 'gt', 'pt', 'acc', 'buyer'];
         keys.forEach(function (k) {
@@ -299,14 +384,12 @@
         gtmScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + gt;
         document.head.appendChild(gtmScript);
         window.dataLayer = window.dataLayer || [];
-        window.gtag = function () {
-            window.dataLayer.push(arguments);
-        };
+        window.gtag = function () { window.dataLayer.push(arguments); };
         gtag('js', new Date());
         gtag('config', gt);
     }
 
-    // Time-on-site tracking (sub_id_21) when subid exists.
+    // Time-on-site tracking (sub_id_21) when subid exists and not disabled.
     if (subid && subid !== '{subid}' && !window.__boostclicksDisableTimeOnSite) {
         const clickid = subid;
         const address = window.location.protocol + '//' + window.location.hostname + '?_update_tokens=1&sub_id=' + clickid;
@@ -328,6 +411,8 @@
     }
 })();
 
+
+// Click logging to analytics.boostclicks.ru (NEVER overwrites subid; only stores click_id separately).
 (function () {
     function getCookie(name) {
         const matches = document.cookie.match(
@@ -337,17 +422,21 @@
     }
 
     var subidCookie = getCookie('_subid');
-    var subid = (subidCookie && subidCookie !== '{subid}') ? subidCookie : (window.__boostclicksSubidOverride || null);
+    var subid = (subidCookie && subidCookie !== '{subid}')
+        ? subidCookie
+        : (window.__boostclicksSubidOverride || sessionStorage.getItem('external_id') || null);
+
     var hostname = window.location.hostname;
 
     // avoid duplicate logging on reloads
-    if (sessionStorage.getItem('analytics_click_logged') === '1') {
-        return;
-    }
+    try {
+        if (sessionStorage.getItem('analytics_click_logged') === '1') return;
+    } catch (e) { }
 
     var searchParams = new URLSearchParams(window.location.search);
     var tags = {};
     var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+
     function decodeSafe(value) {
         if (!value) return '';
         try { return decodeURIComponent(String(value).replace(/\+/g, ' ')); }
@@ -360,19 +449,15 @@
     ]);
 
     searchParams.forEach(function (value, key) {
-        if (!value) {
-            return;
-        }
+        if (!value) return;
         var normalizedKey = key.toLowerCase();
         if (normalizedKey.indexOf('utm_') === 0 || tagKeys.has(normalizedKey) || allow[normalizedKey]) {
             var v = decodeSafe(value).trim();
-            if (v) {
-                tags[normalizedKey] = v.slice(0, 200);
-            }
+            if (v) tags[normalizedKey] = v.slice(0, 200);
         }
     });
 
-    // добираем из cookie, если в url не было
+    // add from cookies if missing in url
     Object.keys(allow).forEach(function (k) {
         if (tags[k]) return;
         var cv = getCookie(k);
@@ -382,17 +467,16 @@
         tags[k] = cv.slice(0, 200);
     });
 
-    var payload = {
-        domain: hostname,
-        subid: subid || null
-    };
+    var payload = { domain: hostname, subid: subid || null };
+    if (Object.keys(tags).length > 0) payload.tags = tags;
 
-    if (Object.keys(tags).length > 0) {
-        payload.tags = tags;
-        try { sessionStorage.setItem('analytics_tags', JSON.stringify(tags)); } catch (e) { }
-    } else {
-        try { sessionStorage.removeItem('analytics_tags'); } catch (e) { }
-    }
+    try {
+        if (Object.keys(tags).length > 0) {
+            sessionStorage.setItem('analytics_tags', JSON.stringify(tags));
+        } else {
+            sessionStorage.removeItem('analytics_tags');
+        }
+    } catch (e) { }
 
     try {
         fetch('https://analytics.boostclicks.ru/api/log-click.php', {
@@ -403,27 +487,12 @@
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data && data.success && data.click_id) {
-                    if (window.__boostclicksShouldOverrideSubid) {
-                        var generatedSubid = 'boostclicks_' + hostname + '_' + data.click_id;
-                        window.__boostclicksSubidOverride = generatedSubid;
-                        subid = subid || generatedSubid;
-                        try {
-                            sessionStorage.setItem('boostclicks_subid', generatedSubid);
-                            sessionStorage.setItem('external_id', generatedSubid);
-                            sessionStorage.setItem('event_id', generatedSubid);
-                        } catch (e) { }
-                        try {
-                            if (window.__boostclicksReplaceSubidInputs) {
-                                window.__boostclicksReplaceSubidInputs(generatedSubid);
-                            }
-                        } catch (e) { }
-                    }
-                    sessionStorage.setItem('analytics_click_id', String(data.click_id));
-                    sessionStorage.setItem('analytics_click_logged', '1');
+                    try {
+                        sessionStorage.setItem('analytics_click_id', String(data.click_id));
+                        sessionStorage.setItem('analytics_click_logged', '1');
+                    } catch (e) { }
                 }
             })
-            .catch(function () { /* ignore silently */ });
-    } catch (e) {
-        // ignore
-    }
+            .catch(function () { });
+    } catch (e) { }
 })();
