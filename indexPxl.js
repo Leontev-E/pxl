@@ -82,6 +82,86 @@
         }
     }
 
+    // Persist lead fields for thank-you page when URL params are missing.
+    var LEAD_NAME_KEY = 'bc_lead_name';
+    var LEAD_PHONE_KEY = 'bc_lead_phone';
+    var LEAD_SUBID_KEY = 'bc_lead_subid';
+    var LEAD_TS_KEY = 'bc_lead_ts';
+
+    function sanitizeName(v) {
+        if (v === undefined || v === null) return '';
+        v = String(v).replace(/\s+/g, ' ').trim();
+        if (!v) return '';
+        if (v.length > 120) v = v.slice(0, 120);
+        return v;
+    }
+
+    function sanitizePhone(v) {
+        if (v === undefined || v === null) return '';
+        v = String(v).trim();
+        if (!v) return '';
+        v = v.replace(/(?!^)\+/g, '');
+        v = v.replace(/[^0-9+]/g, '');
+        var digits = v.replace(/\D/g, '');
+        if (digits.length < 7) return '';
+        if (v.length > 40) v = v.slice(0, 40);
+        return v;
+    }
+
+    function pickFromFormData(fd, reKey) {
+        try {
+            var it = fd.entries();
+            var step = it.next();
+            while (!step.done) {
+                var k = step.value[0];
+                var v = step.value[1];
+                if (k && reKey.test(String(k))) {
+                    return v;
+                }
+                step = it.next();
+            }
+        } catch (e) { }
+        return '';
+    }
+
+    function captureLeadFieldsFromForm(form, subid) {
+        if (!form || form.nodeType !== 1) return;
+        var nameVal = '';
+        var phoneVal = '';
+
+        try {
+            if (window.FormData) {
+                var fd = new FormData(form);
+                nameVal = pickFromFormData(fd, /^(name|fullname|fio|first_name|last_name|имя)$/i);
+                phoneVal = pickFromFormData(fd, /^(phone|tel|telephone|mobile|phone_number|телефон)$/i);
+            }
+        } catch (e) { }
+
+        if (!nameVal) {
+            try {
+                var elName = form.querySelector('input[name="name"], input[name="fullname"], input[name="fio"], input[name*="name" i], input[name*="fio" i], input[name*="имя" i]');
+                if (elName && elName.value) nameVal = elName.value;
+            } catch (e) { }
+        }
+        if (!phoneVal) {
+            try {
+                var elPhone = form.querySelector('input[type="tel"], input[name="phone"], input[name*="phone" i], input[name*="tel" i], input[name*="тел" i]');
+                if (elPhone && elPhone.value) phoneVal = elPhone.value;
+            } catch (e) { }
+        }
+
+        var nameClean = sanitizeName(nameVal);
+        var phoneClean = sanitizePhone(phoneVal);
+        if (!nameClean && !phoneClean) return;
+
+        try {
+            if (nameClean) sessionStorage.setItem(LEAD_NAME_KEY, nameClean);
+            if (phoneClean) sessionStorage.setItem(LEAD_PHONE_KEY, phoneClean);
+            if (subid) sessionStorage.setItem(LEAD_SUBID_KEY, String(subid));
+            sessionStorage.setItem(LEAD_TS_KEY, String(Date.now()));
+        } catch (e) { }
+    }
+
     // --------- Establish subid ONCE (Keitaro wins; else fallback long) ----------
     function getEstablishedSubid() {
         // 1) Keitaro cookie always wins
@@ -145,8 +225,13 @@
 
     function attachSubmitHandler() {
         // capture=true to run early
-        document.addEventListener('submit', function () {
-            try { ensureSubidApplied(); } catch (e) { }
+        document.addEventListener('submit', function (ev) {
+            var sid = null;
+            try { sid = ensureSubidApplied(); } catch (e) { sid = null; }
+            try {
+                var form = ev && ev.target ? ev.target : null;
+                captureLeadFieldsFromForm(form, sid || getSession('external_id'));
+            } catch (e) { }
         }, true);
     }
 
@@ -156,7 +241,9 @@
 
         var native = HTMLFormElement.prototype.submit;
         HTMLFormElement.prototype.submit = function () {
-            try { ensureSubidApplied(); } catch (e) { }
+            var sid = null;
+            try { sid = ensureSubidApplied(); } catch (e) { sid = null; }
+            try { captureLeadFieldsFromForm(this, sid || getSession('external_id')); } catch (e) { }
             return native.apply(this, arguments);
         };
     }
