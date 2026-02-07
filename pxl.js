@@ -49,8 +49,17 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(eventKey, JSON.stringify({ timestamp: now }));
 
     // Отправка name и phone как sub_id_22 и sub_id_23
-    const name = new URLSearchParams(window.location.search).get("name");
-    const phone = new URLSearchParams(window.location.search).get("phone");
+    const qs = new URLSearchParams(window.location.search);
+    let name = qs.get("name") || "";
+    let phone = qs.get("phone") || "";
+    try {
+        const sid = (subid || '').trim();
+        const storedSid = (sessionStorage.getItem('bc_lead_subid') || '').trim();
+        if (sid && storedSid && sid === storedSid) {
+            if (!name) name = sessionStorage.getItem('bc_lead_name') || "";
+            if (!phone) phone = sessionStorage.getItem('bc_lead_phone') || "";
+        }
+    } catch (e) { }
     if (subid && name && phone) {
         const pingUrl = `${location.protocol}//${location.hostname}?_update_tokens=1&sub_id=${encodeURIComponent(subid)}&sub_id_22=${encodeURIComponent(name)}&sub_id_23=${encodeURIComponent(phone)}`;
         const trackingImg = new Image();
@@ -257,6 +266,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     var name = decodeSafe(rawName).replace(/\s+/g, ' ').trim();
     var phone = decodeSafe(rawPhone).replace(/[^0-9+]/g, '');
+
+    // Fallback to values captured on submit when URL params are missing/invalid, but only if subid matches.
+    try {
+        var sid = (subid || '').trim();
+        var storedSid = (sessionStorage.getItem('bc_lead_subid') || '').trim();
+        if (sid && storedSid && sid === storedSid) {
+            if (!name) {
+                var sn = sessionStorage.getItem('bc_lead_name') || '';
+                sn = String(sn).replace(/\s+/g, ' ').trim();
+                if (sn) name = sn.slice(0, 120);
+            }
+            var digits = String(phone || '').replace(/\D/g, '');
+            if (!digits || digits.length < 7) {
+                var sp = sessionStorage.getItem('bc_lead_phone') || '';
+                sp = String(sp).replace(/(?!^)\+/g, '').replace(/[^0-9+]/g, '');
+                var spDigits = sp.replace(/\D/g, '');
+                if (spDigits.length >= 7) phone = sp.slice(0, 40);
+            }
+        }
+    } catch (e) { }
 
     var clickId = sessionStorage.getItem('analytics_click_id') || null;
 
