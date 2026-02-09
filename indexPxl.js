@@ -322,32 +322,73 @@
         if (source) setDomonetkaSourceStorage(source);
     }
 
-    function buildDomonetkaUrlWithMappedParams(domUrl) {
-        const currentUrlParams = new URLSearchParams(window.location.search);
-        const newUrlParams = new URLSearchParams();
-
-        const paramMap = {
-            source: 'source',
-            ev: 'ev',
-            acc: 'sub_id_2',
-            ad: 'sub_id_11',
-            placement: 'sub_id_3',
-            buyer: 'sub_id_4',
-            pxl: 'pxl',
-            adset: 'sub_id_5',
-            gclid: 'gclid',
-            gt: 'gt',
-            pt: 'pt'
-        };
-
-        Object.entries(paramMap).forEach(function ([srcParam, targetParam]) {
-            if (currentUrlParams.has(srcParam)) {
-                newUrlParams.set(targetParam, currentUrlParams.get(srcParam));
+    // Snapshot landing query string once per tab (sessionStorage) so we can forward
+    // full tag set to domonetka even after in-site navigation or URL mutations.
+    var LANDING_QS_KEY = 'bc_lp_qs';
+    function readSearchNoQuestion() {
+        try { return String(window.location.search || '').replace(/^\?/, ''); }
+        catch (e) { return ''; }
+    }
+    function refreshLandingSnapshot() {
+        var now = readSearchNoQuestion();
+        if (!now) return;
+        try {
+            var prev = String(sessionStorage.getItem(LANDING_QS_KEY) || '');
+            // Prefer the richest snapshot (longer query string usually means more tags).
+            if (!prev || now.length > prev.length) {
+                sessionStorage.setItem(LANDING_QS_KEY, now);
             }
+        } catch (e) { }
+    }
+    function getLandingParams() {
+        var raw = '';
+        try { raw = String(sessionStorage.getItem(LANDING_QS_KEY) || ''); } catch (e) { raw = ''; }
+        if (!raw) {
+            raw = readSearchNoQuestion();
+            try { if (raw) sessionStorage.setItem(LANDING_QS_KEY, raw); } catch (e) { }
+        }
+        return new URLSearchParams(raw);
+    }
+
+    function buildDomonetkaUrlWithMappedParams(domUrl) {
+        // Always use landing snapshot for stability.
+        const srcParams = getLandingParams();
+
+        // Merge: keep domonetka URL params, then add all tag params from landing.
+        const u = new URL(domUrl, window.location.href);
+        const out = new URLSearchParams(u.search);
+
+        // Pass-through everything except internal keys (starts with "_").
+        srcParams.forEach(function (value, key) {
+            if (!key) return;
+            const k = String(key);
+            if (k[0] === '_') return;
+            if (!out.has(k)) out.set(k, value);
         });
 
-        const qs = newUrlParams.toString();
-        return qs ? (domUrl + '?' + qs) : domUrl;
+        // Ensure keitaro aliases are always present (both directions).
+        const pairs = [
+            ['acc', 'sub_id_2'],
+            ['placement', 'sub_id_3'],
+            ['buyer', 'sub_id_4'],
+            ['adset', 'sub_id_5'],
+            ['ad', 'sub_id_11'],
+        ];
+        pairs.forEach(function (p) {
+            const a = p[0];
+            const b = p[1];
+            if (srcParams.has(a) && !out.has(b)) out.set(b, srcParams.get(a));
+            if (srcParams.has(b) && !out.has(a)) out.set(a, srcParams.get(b));
+        });
+        // ad_id is a common alias for ad
+        if (srcParams.has('ad_id')) {
+            const v = srcParams.get('ad_id');
+            if (v && !out.has('ad')) out.set('ad', v);
+            if (v && !out.has('sub_id_11')) out.set('sub_id_11', v);
+        }
+
+        u.search = out.toString() ? ('?' + out.toString()) : '';
+        return u.toString();
     }
 
     function showDomonetkaFrame(finalUrl) {
@@ -499,6 +540,11 @@
     const domFromGlobal = getDomonetkaFromGlobal();
     const domFromStorage = domFromGlobal ? '' : getDomonetkaFromStorage();
     const domonetkaUrlNow = domFromGlobal || domFromStorage;
+
+    // Capture/refresh landing tags; Keitaro pages sometimes mutate URL after load.
+    refreshLandingSnapshot();
+    setTimeout(refreshLandingSnapshot, 1500);
+    setTimeout(refreshLandingSnapshot, 3500);
 
     if (domonetkaUrlNow) {
         if (domFromGlobal) {
