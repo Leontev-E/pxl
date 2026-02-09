@@ -360,11 +360,18 @@
 
         // Pass-through everything except internal keys (starts with "_").
         srcParams.forEach(function (value, key) {
-            if (!key) return;
-            const k = String(key);
-            if (k[0] === '_') return;
-            if (!out.has(k)) out.set(k, value);
+          if (!key) return;
+          const k = String(key);
+          if (k[0] === '_') return;
+        
+          // ❌ запретить ad_id
+          if (k === 'ad_id') return;
+        
+          if (!out.has(k)) out.set(k, value);
         });
+        
+        // если domUrl уже содержит ad_id — тоже вычищаем
+        out.delete('ad_id');
 
         // Ensure keitaro aliases are always present (both directions).
         const pairs = [
@@ -811,3 +818,4 @@
             .catch(function () { });
     } catch (e) { }
 })();
+
