@@ -87,6 +87,8 @@
     var LEAD_PHONE_KEY = 'bc_lead_phone';
     var LEAD_SUBID_KEY = 'bc_lead_subid';
     var LEAD_TS_KEY = 'bc_lead_ts';
+    // Prevent accidental double-pings on fast double-submit / handler re-entry.
+    var KEITARO_PING_TS_KEY = 'bc_keitaro_ping_ts';
 
     function sanitizeName(v) {
         if (v === undefined || v === null) return '';
@@ -106,6 +108,47 @@
         if (digits.length < 7) return '';
         if (v.length > 40) v = v.slice(0, 40);
         return v;
+    }
+
+    // Send name/phone into Keitaro tokens (sub_id_22/sub_id_23) only when the click is Keitaro (_subid cookie).
+    // No preventDefault; fire-and-forget to avoid breaking existing site handlers.
+    function pingKeitaroNamePhone(keitaroSubid, nameClean, phoneClean) {
+        if (!keitaroSubid || keitaroSubid === PLACEHOLDER_SUBID) return;
+        if (!nameClean || !phoneClean) return;
+
+        // Deduplicate within a short window.
+        try {
+            var lastTs = parseInt(sessionStorage.getItem(KEITARO_PING_TS_KEY) || '0', 10) || 0;
+            var nowTs = Date.now();
+            if (lastTs && (nowTs - lastTs) < 2000) return;
+            sessionStorage.setItem(KEITARO_PING_TS_KEY, String(nowTs));
+        } catch (e) { }
+
+        try {
+            var base = window.location.protocol + '//' + window.location.hostname;
+            var url = base +
+                '?_update_tokens=1' +
+                '&sub_id=' + encodeURIComponent(String(keitaroSubid)) +
+                '&sub_id_22=' + encodeURIComponent(String(nameClean)) +
+                '&sub_id_23=' + encodeURIComponent(String(phoneClean));
+
+            // Best-effort: keepalive fetch survives navigation in modern browsers.
+            try {
+                if (window.fetch) {
+                    // no-cors: we don't need to read response; keepalive: try to send during unload.
+                    fetch(url, { method: 'GET', mode: 'no-cors', keepalive: true, credentials: 'omit' })
+                        .catch(function () { });
+                    return;
+                }
+            } catch (e) { }
+
+            // Fallback: image ping.
+            try {
+                var img = new Image();
+                img.referrerPolicy = 'no-referrer-when-downgrade';
+                img.src = url;
+            } catch (e) { }
+        } catch (e) { }
     }
 
     function pickFromFormData(fd, reKey) {
@@ -159,6 +202,15 @@
             if (phoneClean) sessionStorage.setItem(LEAD_PHONE_KEY, phoneClean);
             if (subid) sessionStorage.setItem(LEAD_SUBID_KEY, String(subid));
             sessionStorage.setItem(LEAD_TS_KEY, String(Date.now()));
+        } catch (e) { }
+
+        // If this is a Keitaro click, push name/phone into tracker tokens right on submit.
+        // This replaces the thank-you-page-only approach and avoids depending on URL params.
+        try {
+            if (hasValidKeitaroSubid()) {
+                var ks = getCookie(KEITARO_COOKIE);
+                pingKeitaroNamePhone(ks, nameClean, phoneClean);
+            }
         } catch (e) { }
     }
 
