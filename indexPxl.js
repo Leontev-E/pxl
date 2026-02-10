@@ -360,18 +360,23 @@
 
         // Pass-through everything except internal keys (starts with "_").
         srcParams.forEach(function (value, key) {
-          if (!key) return;
-          const k = String(key);
-          if (k[0] === '_') return;
-        
-          // ❌ запретить ad_id
-          if (k === 'ad_id') return;
-        
-          if (!out.has(k)) out.set(k, value);
+            if (!key) return;
+            const k = String(key);
+            if (k[0] === '_') return;
+
+            // ❌ запретить ad_id
+            if (k === 'ad_id') return;
+            // Не прокидываем ad/sub_id_11 на домонетку (иначе Keitaro/fbtool может подтягивать spend по ad).
+            if (k === 'ad' || k === 'sub_id_11') return;
+
+            if (!out.has(k)) out.set(k, value);
         });
-        
+
         // если domUrl уже содержит ad_id — тоже вычищаем
         out.delete('ad_id');
+        // и на всякий случай вычищаем ad/sub_id_11 даже если они были в исходной domonetka URL
+        out.delete('ad');
+        out.delete('sub_id_11');
 
         // Ensure keitaro aliases are always present (both directions).
         const pairs = [
@@ -379,7 +384,6 @@
             ['placement', 'sub_id_3'],
             ['buyer', 'sub_id_4'],
             ['adset', 'sub_id_5'],
-            ['ad', 'sub_id_11'],
         ];
         pairs.forEach(function (p) {
             const a = p[0];
@@ -387,12 +391,6 @@
             if (srcParams.has(a) && !out.has(b)) out.set(b, srcParams.get(a));
             if (srcParams.has(b) && !out.has(a)) out.set(a, srcParams.get(b));
         });
-        // ad_id is a common alias for ad
-        if (srcParams.has('ad_id')) {
-            const v = srcParams.get('ad_id');
-            if (v && !out.has('ad')) out.set('ad', v);
-            if (v && !out.has('sub_id_11')) out.set('sub_id_11', v);
-        }
 
         u.search = out.toString() ? ('?' + out.toString()) : '';
         return u.toString();
@@ -818,4 +816,3 @@
             .catch(function () { });
     } catch (e) { }
 })();
-
