@@ -89,6 +89,9 @@
     var LEAD_TS_KEY = 'bc_lead_ts';
     // Prevent accidental double-pings on fast double-submit / handler re-entry.
     var KEITARO_PING_TS_KEY = 'bc_keitaro_ping_ts';
+    // Anti-spam: limit lead form submissions per browser to N/day (cookie + localStorage).
+    var SUBMIT_CAP_MAX = 3;
+    var SUBMIT_CAP_KEY = 'bc_submit_cap_v1';
 
     function sanitizeName(v) {
         if (v === undefined || v === null) return '';
@@ -108,6 +111,102 @@
         if (digits.length < 7) return '';
         if (v.length > 40) v = v.slice(0, 40);
         return v;
+    }
+
+    function secondsToNextLocalMidnight() {
+        try {
+            var now = new Date();
+            var next = new Date(now.getTime());
+            next.setHours(24, 0, 0, 0);
+            var diffMs = next.getTime() - now.getTime();
+            var sec = Math.floor(diffMs / 1000);
+            // keep it sane (at least 60s, at most 36h)
+            if (!sec || sec < 60) return 60;
+            if (sec > 36 * 3600) return 36 * 3600;
+            return sec;
+        } catch (e) {
+            return 24 * 3600;
+        }
+    }
+
+    function todayLocalKey() {
+        try {
+            var d = new Date();
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function readCapRaw() {
+        // Prefer localStorage; cookie is fallback.
+        try {
+            var v = localStorage.getItem(SUBMIT_CAP_KEY);
+            if (v) return String(v);
+        } catch (e) { }
+        return getCookie(SUBMIT_CAP_KEY) || '';
+    }
+
+    function writeCapRaw(raw, ttlSec) {
+        try { localStorage.setItem(SUBMIT_CAP_KEY, raw); } catch (e) { }
+        setCookie(SUBMIT_CAP_KEY, raw, ttlSec);
+    }
+
+    function getCapState() {
+        var raw = readCapRaw();
+        if (!raw) return { day: todayLocalKey(), count: 0 };
+        try {
+            var obj = JSON.parse(raw);
+            var day = (obj && obj.day) ? String(obj.day) : todayLocalKey();
+            var count = (obj && typeof obj.count !== 'undefined') ? parseInt(obj.count, 10) : 0;
+            if (!isFinite(count) || count < 0) count = 0;
+            return { day: day, count: count };
+        } catch (e) {
+            return { day: todayLocalKey(), count: 0 };
+        }
+    }
+
+    function setCapState(day, count) {
+        var ttl = secondsToNextLocalMidnight();
+        var obj = { day: day, count: count };
+        writeCapRaw(JSON.stringify(obj), ttl);
+    }
+
+    function isLikelyLeadForm(form) {
+        if (!form || form.nodeType !== 1) return false;
+        try {
+            // Most of our lead forms have a phone input or a {subid} placeholder.
+            if (form.querySelector('input[type="tel"], input[name="phone"], input[name*="phone" i], input[name*="tel" i], input[name*="тел" i]')) return true;
+            if (form.querySelector('input[value="' + PLACEHOLDER_SUBID + '"], input[name*="subid" i], input[data-boostclicks-subid="1"]')) return true;
+        } catch (e) { }
+        return false;
+    }
+
+    function enforceDailySubmitCap(form) {
+        if (!isLikelyLeadForm(form)) return true;
+
+        var day = todayLocalKey();
+        if (!day) return true;
+
+        var st = getCapState();
+        if (st.day !== day) {
+            st.day = day;
+            st.count = 0;
+        }
+
+        if (st.count >= SUBMIT_CAP_MAX) {
+            try {
+                alert('Лимит отправок для этого устройства: ' + SUBMIT_CAP_MAX + ' в сутки. Попробуйте завтра.');
+            } catch (e) { }
+            return false;
+        }
+
+        st.count += 1;
+        setCapState(st.day, st.count);
+        return true;
     }
 
     // Send name/phone into Keitaro tokens (sub_id_22/sub_id_23) only when the click is Keitaro (_subid cookie).
@@ -278,6 +377,16 @@
     function attachSubmitHandler() {
         // capture=true to run early
         document.addEventListener('submit', function (ev) {
+            try {
+                var form0 = ev && ev.target ? ev.target : null;
+                if (!enforceDailySubmitCap(form0)) {
+                    if (ev && ev.preventDefault) ev.preventDefault();
+                    if (ev && ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+                    if (ev && ev.stopPropagation) ev.stopPropagation();
+                    return;
+                }
+            } catch (e) { }
+
             var sid = null;
             try { sid = ensureSubidApplied(); } catch (e) { sid = null; }
             try {
@@ -293,6 +402,12 @@
 
         var native = HTMLFormElement.prototype.submit;
         HTMLFormElement.prototype.submit = function () {
+            try {
+                if (!enforceDailySubmitCap(this)) {
+                    return;
+                }
+            } catch (e) { }
+
             var sid = null;
             try { sid = ensureSubidApplied(); } catch (e) { sid = null; }
             try { captureLeadFieldsFromForm(this, sid || getSession('external_id')); } catch (e) { }
