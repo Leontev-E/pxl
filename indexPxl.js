@@ -1,7 +1,3 @@
-// indexPxl.js — unified, stable subid logic + pixels + click logging
-// Key rule: subid is NEVER overwritten once established (Keitaro _subid wins; otherwise long BoostClicks fallback).
-// Also: forms always get the established subid (even if submitted via form.submit()).
-
 (function () {
     'use strict';
 
@@ -707,7 +703,7 @@
         : (window.__boostclicksSubidOverride || sessionStorage.getItem('external_id') || null);
 
     // domonetka:
-    // - if comes from global variable domonetka => keep redirect mode
+    // - if comes from global variable domonetka => keep redirect mode (unless forced by Keitaro+gclid rule)
     // - if comes from API lookup (domonetka.php) => use frame mode
     const domFromGlobal = getDomonetkaFromGlobal();
     const domFromStorage = domFromGlobal ? '' : getDomonetkaFromStorage();
@@ -718,13 +714,52 @@
     setTimeout(refreshLandingSnapshot, 1500);
     setTimeout(refreshLandingSnapshot, 3500);
 
+    // ---- NEW: Force iframe mode when Keitaro click + gclid present (not empty).
+    function hasValidKeitaroClick() {
+        try {
+            var s = safeTrim(getCookie('_subid'));
+            return !!(s && s !== '{subid}');
+        } catch (e) { }
+        return false;
+    }
+
+    function getParamFromLandingOrUrlOrCookie(key) {
+        key = String(key || '').trim();
+        if (!key) return '';
+
+        // 1) landing snapshot (stable)
+        try {
+            var lp = getLandingParams();
+            var v1 = safeTrim(lp.get(key));
+            if (v1) return v1;
+        } catch (e) { }
+
+        // 2) current URL
+        try {
+            var v2 = safeTrim(urlParams.get(key));
+            if (v2) return v2;
+        } catch (e) { }
+
+        // 3) cookie fallback
+        try {
+            var v3 = safeTrim(getCookie(key));
+            if (v3) return v3;
+        } catch (e) { }
+
+        return '';
+    }
+
+    var gclidVal = getParamFromLandingOrUrlOrCookie('gclid');
+    var forceFrameBecauseGclid = hasValidKeitaroClick() && !!gclidVal;
+
     if (domonetkaUrlNow) {
         if (domFromGlobal) {
             setDomonetkaStorage(domonetkaUrlNow, 'global');
-            initDomonetka(domonetkaUrlNow, 'redirect');
+            initDomonetka(domonetkaUrlNow, forceFrameBecauseGclid ? 'frame' : 'redirect');
         } else {
             const src = getDomonetkaSourceFromStorage() || 'api';
-            initDomonetka(domonetkaUrlNow, (src === 'global') ? 'redirect' : 'frame');
+            var baseMode = (src === 'global') ? 'redirect' : 'frame';
+            initDomonetka(domonetkaUrlNow, forceFrameBecauseGclid ? 'frame' : baseMode);
         }
     } else {
         // Only makes sense on main domains (same rule as fallback subid generation).
