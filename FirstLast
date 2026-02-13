@@ -1,32 +1,17 @@
+<script>
 (function () {
-  'use strict';
-
-  const params = new URLSearchParams(window.location.search);
-  const gt = (params.get('gt') || '').trim(); // ожидаем GA4 Measurement ID вида G-XXXXXXX
+  var params = new URLSearchParams(window.location.search);
+  var gt = (params.get('gt') || '').trim();
   if (!gt) return;
 
-  if (!document.querySelector('script[data-bc-gtag="1"]')) {
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(gt);
-    s.setAttribute('data-bc-gtag', '1');
-    document.head.appendChild(s);
-  }
+  var s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(gt);
+  document.head.appendChild(s);
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+  window.gtag = function(){ dataLayer.push(arguments); };
 
   gtag('js', new Date());
   gtag('config', gt);
-
-  try {
-    const onceKey = 'bc_ga4_event_sent_' + gt;
-    if (sessionStorage.getItem(onceKey) === '1') return;
-    sessionStorage.setItem(onceKey, '1');
-  } catch (e) {}
-
-  gtag('event', 'bc_event', {
-    page_location: location.href,
-    page_path: location.pathname
-  });
 })();
