@@ -1,4 +1,3 @@
-<script>
 (function () {
   var params = new URLSearchParams(window.location.search);
   var gt = (params.get('gt') || '').trim();
