@@ -877,7 +877,7 @@
 
     // Store selected params in cookies for GTM.
     (function setUTMCookies() {
-        const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer', 'gclid'];
+        const utmParameters = ['gt', 'pt', 'ad_id', 'acc', 'buyer', 'gclid', 'sub8', 'sub9'];
         utmParameters.forEach(function (param) {
             if (urlParams.has(param)) {
                 const value = urlParams.get(param);
@@ -890,7 +890,7 @@
 
     // store key tags in cookies for 2 hours as fallback
     (function storeFallbackCookies() {
-        var keys = ['gclid', 'gt', 'pt', 'acc', 'buyer'];
+        var keys = ['gclid', 'gt', 'pt', 'acc', 'buyer', 'sub8', 'sub9'];
         keys.forEach(function (k) {
             if (urlParams.has(k)) {
                 setCookie(k, urlParams.get(k), 7200);
@@ -957,7 +957,7 @@
 
     var searchParams = new URLSearchParams(window.location.search);
     var tags = {};
-    var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+    var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1, sub8: 1, sub9: 1 };
 
     function decodeSafe(value) {
         if (!value) return '';
@@ -967,7 +967,7 @@
 
     var tagKeys = new Set([
         'source', 'ev', 'acc', 'ad', 'placement', 'buyer', 'adset', 'ad_id',
-        'pxl', 'gclid', 'fbclid', 'yclid', 'ymclid', 'gt', 'pt', 'utm_id'
+        'pxl', 'gclid', 'fbclid', 'yclid', 'ymclid', 'gt', 'pt', 'utm_id', 'sub8', 'sub9'
     ]);
 
     searchParams.forEach(function (value, key) {
