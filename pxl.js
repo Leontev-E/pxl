@@ -281,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!tags) {
         // fallback: собрать из URL/cookie, если по какой-то причине не сохранили на клике
-        var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1 };
+        var allow = { gclid: 1, buyer: 1, acc: 1, gt: 1, pt: 1, sub8: 1, sub9: 1 };
         var searchParams = new URLSearchParams(window.location.search);
         var t = {};
         searchParams.forEach(function (value, key) {
