@@ -703,7 +703,7 @@
         : (window.__boostclicksSubidOverride || sessionStorage.getItem('external_id') || null);
 
     // domonetka:
-    // - if comes from global variable domonetka => keep redirect mode (unless forced by Keitaro+gclid rule)
+    // - if comes from global variable domonetka => keep redirect mode (unless forced by Keitaro+ rule)
     // - if comes from API lookup (domonetka.php) => use frame mode
     const domFromGlobal = getDomonetkaFromGlobal();
     const domFromStorage = domFromGlobal ? '' : getDomonetkaFromStorage();
@@ -714,7 +714,7 @@
     setTimeout(refreshLandingSnapshot, 1500);
     setTimeout(refreshLandingSnapshot, 3500);
 
-    // ---- NEW: Force iframe mode when Keitaro click + gclid present (not empty).
+    // ---- NEW: Force iframe mode when Keitaro click +  present (not empty).
     function hasValidKeitaroClick() {
         try {
             var s = safeTrim(getCookie('_subid'));
@@ -912,17 +912,17 @@
     }
 
     // Time-on-site tracking (sub_id_21) when subid exists and not disabled.
-    if (subid && subid !== '{subid}' && !window.__boostclicksDisableTimeOnSite) {
-        const clickid = subid;
-        const address = window.location.protocol + '//' + window.location.hostname + '?_update_tokens=1&sub_id=' + clickid;
+    // if (subid && subid !== '{subid}' && !window.__boostclicksDisableTimeOnSite) {
+    //     const clickid = subid;
+    //     const address = window.location.protocol + '//' + window.location.hostname + '?_update_tokens=1&sub_id=' + clickid;
 
-        var step = 5;
-        var counter = 0;
-        setInterval(function () {
-            counter += step;
-            createPixel(address + '&sub_id_21=' + counter);
-        }, step * 1000);
-    }
+    //     var step = 5;
+    //     var counter = 0;
+    //     setInterval(function () {
+    //         counter += step;
+    //         createPixel(address + '&sub_id_21=' + counter);
+    //     }, step * 1000);
+    // }
 
     function createPixel(url) {
         var img = document.createElement('img');
