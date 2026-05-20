@@ -1000,12 +1000,6 @@
         ).trim();
         if (!pixelId) return;
 
-        try {
-            const key = "tt_pageview_sent_" + pixelId;
-            if (sessionStorage.getItem(key) === "1") return;
-            sessionStorage.setItem(key, "1");
-        } catch (e) {}
-
         if (!window.ttq) {
             !(function (w, d, t) {
                 w.TiktokAnalyticsObject = t;
