@@ -1,3 +1,54 @@
+// === Prewarm success.php — preconnects, preloads, translation cache ===
+(function () {
+  function injectLink(rel, href, as) {
+    try {
+      var link = document.createElement('link');
+      link.rel = rel;
+      link.href = href;
+      if (as) link.as = as;
+      (document.head || document.documentElement).appendChild(link);
+    } catch (e) {}
+  }
+
+  // Preconnect — TCP+TLS handshake пока юзер заполняет форму
+  [
+    'https://cdn.jsdelivr.net',
+    'https://unpkg.com',
+    'https://connect.facebook.net',
+    'https://analytics.tiktok.com',
+    'https://www.googletagmanager.com',
+    'https://analytics.boostclicks.ru',
+    'https://klm-team.pw'
+  ].forEach(function (h) { injectLink('preconnect', h); });
+
+  // Preload — все блокирующие <script src> из success.php <head>
+  // К моменту перехода на success.php они уже в browser cache → execute ~instant
+  [
+    'https://unpkg.com/i18next@21.8.11/dist/umd/i18next.min.js',
+    'https://unpkg.com/jquery@3.6.0/dist/jquery.min.js',
+    'https://unpkg.com/jquery-i18next@1.2.0/dist/umd/jquery-i18next.min.js',
+    'https://cdn.jsdelivr.net/gh/Leontev-E/pxl/pxl.js'
+  ].forEach(function (u) { injectLink('preload', u, 'script'); });
+
+  // Prewarm server-side translation cache (создаёт /success/XX.json пока юзер на индексе)
+  function prewarm() {
+    try {
+      var lang = (navigator.language || 'en').split('-')[0];
+      if (!lang || lang === 'en') return;
+      fetch('success.php?get_translations=1&lang=' + encodeURIComponent(lang), {
+        keepalive: true,
+        mode: 'no-cors',
+        credentials: 'omit'
+      }).catch(function(){});
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', prewarm);
+  } else {
+    prewarm();
+  }
+})();
+
 (function () {
     "use strict";
 
