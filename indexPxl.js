@@ -127,6 +127,8 @@
 
     function replacePlaceholderInputs(subid) {
         if (!subid) return;
+    
+        // subid
         var inputs;
         try {
             inputs = document.querySelectorAll(
@@ -137,13 +139,31 @@
         } catch (e) {
             inputs = [];
         }
-
+    
         for (var i = 0; i < inputs.length; i++) {
             var input = inputs[i];
             try {
                 input.value = subid;
                 input.setAttribute("value", subid);
                 input.setAttribute("data-boostclicks-subid", "1");
+            } catch (e) {}
+        }
+    
+        // traffic_source_name fallback
+        var trafficInputs;
+        try {
+            trafficInputs = document.querySelectorAll(
+                'form input[value="{traffic_source_name}"]',
+            );
+        } catch (e) {
+            trafficInputs = [];
+        }
+    
+        for (var j = 0; j < trafficInputs.length; j++) {
+            var tInput = trafficInputs[j];
+            try {
+                tInput.value = "GoogleAds";
+                tInput.setAttribute("value", "GoogleAds");
             } catch (e) {}
         }
     }
