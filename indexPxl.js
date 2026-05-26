@@ -1205,6 +1205,9 @@
 })();
 
 // Click logging to analytics.boostclicks.ru (NEVER overwrites subid; only stores click_id separately).
+// IMPORTANT: runs AFTER DOMContentLoaded so that the subid-establish IIFE (initFallbackBlock)
+// has already set window.__boostclicksSubidOverride / sessionStorage.external_id.
+// Otherwise the boostclicks_* fallback subid is null at fire time and lands as NULL in clicks.
 (function () {
     function getCookie(name) {
         const matches = document.cookie.match(
@@ -1217,13 +1220,24 @@
         return matches ? decodeURIComponent(matches[1]) : null;
     }
 
-    var subidCookie = getCookie("_subid");
-    var subid =
-        subidCookie && subidCookie !== "{subid}"
-            ? subidCookie
-            : window.__boostclicksSubidOverride ||
-              sessionStorage.getItem("external_id") ||
-              null;
+    function readEstablishedSubid() {
+        // Mirror getEstablishedSubid() from the subid IIFE — read all sources
+        // in the same priority so a fallback subid is always available, even
+        // if initFallbackBlock has not yet run on a slow browser.
+        var ks = getCookie("_subid");
+        if (ks && ks !== "{subid}") return ks;
+        if (window.__boostclicksSubidOverride) return window.__boostclicksSubidOverride;
+        try {
+            var s = sessionStorage.getItem("external_id");
+            if (s && s !== "{subid}") return s;
+        } catch (e) {}
+        var fb = getCookie("subidBC");
+        if (fb && fb !== "{subid}") return fb;
+        return null;
+    }
+
+    function runClickLogger() {
+    var subid = readEstablishedSubid();
 
     var hostname = window.location.hostname;
 
@@ -1322,6 +1336,18 @@
             })
             .catch(function () {});
     } catch (e) {}
+    } // end runClickLogger
+
+    // Wait for DOMContentLoaded + microtask. The subid-establish IIFE (initFallbackBlock)
+    // also runs on DOMContentLoaded; setTimeout(0) defers us to the next tick so it sets
+    // window.__boostclicksSubidOverride first.
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(runClickLogger, 0);
+        });
+    } else {
+        setTimeout(runClickLogger, 0);
+    }
 })();
 
 // =========================================================================
