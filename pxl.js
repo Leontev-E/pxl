@@ -384,17 +384,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!gt || gt === "gt") return;
 
     const updateURL = () => {
-        const url = new URL(window.location.href);
-        url.searchParams.set("gt", gt);
-        url.searchParams.set("pt", pt);
-        url.searchParams.set("ad_id", ad_id);
-        url.searchParams.set("acc", acc);
-        url.searchParams.set("buyer", buyer);
-        window.history.replaceState(
-            { path: url.toString() },
-            "",
-            url.toString(),
-        );
+        // НЕ вписываем канонические имена меток (gt/pt/ad_id/acc/buyer) обратно в
+        // видимый URL: на трафике по синонимам это поставило бы алиас И его канон
+        // рядом (siga4=X и gt=X), раскрыв соответствие алиас→канон и заново
+        // «спалив» метки, ради сокрытия которых и вводились синонимы. gtag получает
+        // значения аргументами loadGTM(gt, pt), поэтому переписывание URL было
+        // функционально бесполезным. Значения для log-lead-фолбэка берутся из
+        // cookie (их ставит резолвер синонимов выше), а не из URL.
         loadGTM(gt, pt);
     };
 
