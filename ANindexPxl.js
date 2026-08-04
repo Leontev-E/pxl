@@ -238,7 +238,7 @@
     if (window.__boostclicksDomonetkaFetch === 1) return;
     window.__boostclicksDomonetkaFetch = 1;
 
-    var url = 'https://analytics.boostclicks.ru/api/domonetka.php?domain=' + encodeURIComponent(domain);
+    var url = 'https://analytics.boostclicks.tech/api/domonetka.php?domain=' + encodeURIComponent(domain);
 
     function onUrl(u) {
       u = safeTrim(u);

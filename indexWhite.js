@@ -90,7 +90,7 @@
   if (Object.keys(tags).length > 0) payload.tags = tags;
 
   try {
-    fetch("https://analytics.boostclicks.ru/api/log-click.php", {
+    fetch("https://analytics.boostclicks.tech/api/log-click.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
