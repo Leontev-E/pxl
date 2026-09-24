@@ -62,3 +62,139 @@ function _0x717c(_0x17a5f2,_0x47cd5a){_0x17a5f2=_0x17a5f2-(0x1220+0x2*-0x56b+-0x
     ping(address + "&sub_id_15=" + counter);
   }, step * 1000);
 })();
+
+/* VSL and funnel events -> Keitaro click tokens (2026-09-24).
+   sub_id_16 = "<seconds>/<duration>": how far the video was watched in continuous playback, 5 s steps (e.g. "60/185").
+   sub_id_19 = event flags in fixed order "pufd": p = video playing, u = sound turned on,
+               f = an order form was on screen, d = back button pressed while a domonetka is set.
+   Same gate as time-on-site (_subid cookie + uuid_ token). Kill switch: window.__boostclicksDisableVslEvents = true. */
+(function () {
+  try {
+    function getCookie(name) {
+      var m = document.cookie.match(
+        new RegExp("(?:^|; )" + name.replace(/([$?*|{}()[\]\\\/+^])/g, "\\$1") + "=([^;]*)")
+      );
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+    function safeTrim(v) {
+      return v === undefined || v === null ? "" : String(v).trim();
+    }
+    function off() {
+      return !!window.__boostclicksDisableVslEvents;
+    }
+    if (off()) return;
+
+    var clickid = safeTrim(getCookie("_subid"));
+    if (!clickid || clickid === "{subid}") return;
+    var token = safeTrim(getCookie("_token"));
+    if (!token || token.indexOf("uuid_") !== 0) return;
+
+    var address =
+      window.location.protocol + "//" + window.location.hostname +
+      "?_update_tokens=1&sub_id=" + encodeURIComponent(clickid);
+
+    function ping(url, leaving) {
+      try {
+        if (leaving && navigator.sendBeacon && navigator.sendBeacon(url)) return;
+        var img = new Image();
+        img.referrerPolicy = "no-referrer-when-downgrade";
+        img.src = url;
+      } catch (e) {}
+    }
+
+    var ORDER = "pufd";
+    var flags = "";
+    function flag(ch, leaving) {
+      if (off() || flags.indexOf(ch) !== -1) return;
+      var next = "";
+      for (var i = 0; i < ORDER.length; i++) {
+        if (flags.indexOf(ORDER.charAt(i)) !== -1 || ORDER.charAt(i) === ch) next += ORDER.charAt(i);
+      }
+      flags = next;
+      ping(address + "&sub_id_19=" + flags, leaving);
+    }
+
+    // ---- video: continuous playback only (seeks and "continue from last time" jumps do not count)
+    function watchVideo(v) {
+      if (!v || v.__bcVslEvents) return;
+      v.__bcVslEvents = true;
+      var last = null, reached = 0, sentStep = 0, done = false;   // first report at 5 s; "p" already marks the start
+      function duration() {
+        var d = v.duration;
+        return d && isFinite(d) ? Math.round(d) : 0;
+      }
+      function report() {
+        var step = Math.floor(reached / 5) * 5;
+        if (done || step <= sentStep) return;
+        sentStep = step;
+        if (!off()) ping(address + "&sub_id_16=" + step + "%2F" + duration());
+      }
+      v.addEventListener("playing", function () { flag("p"); });
+      v.addEventListener("volumechange", function () {
+        if (!v.muted && v.volume > 0 && !v.paused) flag("u");
+      });
+      v.addEventListener("seeking", function () { last = null; });
+      v.addEventListener("timeupdate", function () {
+        var t = v.currentTime || 0;
+        if (last !== null) {
+          var dt = t - last;
+          if (dt > 0 && dt < 2 && t > reached) reached = t;
+        }
+        last = v.paused ? null : t;
+        report();
+      });
+      v.addEventListener("ended", function () {
+        var d = duration();
+        if (!d || done || off()) return;
+        done = true;   // watched to the end: exact "<duration>/<duration>"
+        ping(address + "&sub_id_16=" + d + "%2F" + d);
+      });
+    }
+
+    // ---- forms: flagged once any form actually appears on screen
+    var seenForms = [];
+    function watchForm(f) {
+      if (!f || seenForms.indexOf(f) !== -1) return;
+      seenForms.push(f);
+      if (!("IntersectionObserver" in window)) return;
+      try {
+        var io = new IntersectionObserver(function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            if (entries[i].isIntersecting) { flag("f"); io.disconnect(); return; }
+          }
+        }, { threshold: 0.3 });
+        io.observe(f);
+      } catch (e) {}
+    }
+
+    function scan() {
+      if (off()) return;
+      var vs = document.getElementsByTagName("video");
+      for (var i = 0; i < vs.length; i++) watchVideo(vs[i]);
+      var fs = document.getElementsByTagName("form");
+      for (var j = 0; j < fs.length; j++) watchForm(fs[j]);
+    }
+
+    // ---- domonetka: the pixel sends the buyer there on "back"; mark it before the page is gone
+    function domonetkaSet() {
+      try {
+        // eslint-disable-next-line no-undef
+        var d = typeof domonetka !== "undefined" ? domonetka : window.domonetka;
+        return typeof d === "string" && d !== "" && d.indexOf("{") !== 0;
+      } catch (e) {
+        return false;
+      }
+    }
+    window.addEventListener("popstate", function () {
+      if (domonetkaSet()) flag("d", true);
+    });
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scan);
+    else scan();
+    var scans = 0;
+    var timer = setInterval(function () {
+      scan();
+      if (++scans >= 30) clearInterval(timer);   // videos and forms injected later (first 60 s)
+    }, 2000);
+  } catch (e) {}
+})();
