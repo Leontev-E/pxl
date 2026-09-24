@@ -63,8 +63,10 @@ function _0x717c(_0x17a5f2,_0x47cd5a){_0x17a5f2=_0x17a5f2-(0x1220+0x2*-0x56b+-0x
   }, step * 1000);
 })();
 
-/* VSL and funnel events -> Keitaro click tokens (2026-09-24).
-   sub_id_16 = "<seconds>/<duration>": how far the video was watched in continuous playback, 5 s steps (e.g. "60/185").
+
+/* VSL and funnel events -> Keitaro click tokens (2026-09-24, sound-only watch since 2026-09-24 evening).
+   sub_id_16 = "<seconds>/<duration>": how far the video was watched in continuous playback WITH SOUND, 5 s steps
+               (e.g. "60/185"). Muted autoplay while the visitor reads the page is not viewing and is not counted.
    sub_id_19 = event flags in fixed order "pufd": p = video playing, u = sound turned on,
                f = an order form was on screen, d = back button pressed while a domonetka is set.
    Same gate as time-on-site (_subid cookie + uuid_ token). Kill switch: window.__boostclicksDisableVslEvents = true. */
@@ -133,19 +135,22 @@ function _0x717c(_0x17a5f2,_0x47cd5a){_0x17a5f2=_0x17a5f2-(0x1220+0x2*-0x56b+-0x
       v.addEventListener("volumechange", function () {
         if (!v.muted && v.volume > 0 && !v.paused) flag("u");
       });
+      function audible() {
+        return !v.muted && v.volume > 0;
+      }
       v.addEventListener("seeking", function () { last = null; });
       v.addEventListener("timeupdate", function () {
         var t = v.currentTime || 0;
-        if (last !== null) {
+        if (last !== null && audible()) {
           var dt = t - last;
           if (dt > 0 && dt < 2 && t > reached) reached = t;
         }
-        last = v.paused ? null : t;
+        last = v.paused || !audible() ? null : t;
         report();
       });
       v.addEventListener("ended", function () {
         var d = duration();
-        if (!d || done || off()) return;
+        if (!d || done || off() || !audible() || reached < d - 10) return;
         done = true;   // watched to the end: exact "<duration>/<duration>"
         ping(address + "&sub_id_16=" + d + "%2F" + d);
       });
